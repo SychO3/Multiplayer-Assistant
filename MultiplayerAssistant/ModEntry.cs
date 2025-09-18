@@ -1,6 +1,6 @@
+using HarmonyLib;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
-using HarmonyLib;
 
 namespace MultiplayerAssistant;
 
@@ -14,6 +14,9 @@ public class ModEntry : Mod
         this._harmony = new Harmony(this.ModManifest.UniqueID);
         this._harmony.PatchAll();
 
+        // 初始化日志工具，后续模块可以直接调用 LogManager.* 输出日志
+        LogManager.Initialize(this.Monitor, this.ModManifest.Name);
+
         // 控制台命令：在 SMAPI 控制台输入 `mpa_ping`
         helper.ConsoleCommands.Add("mpa_ping", "Ping test for MultiplayerAssistant", this.OnPingCommand);
 
@@ -23,12 +26,12 @@ public class ModEntry : Mod
 
     private void OnGameLaunched(object? sender, GameLaunchedEventArgs e)
     {
-        this.Monitor.Log("Multiplayer Assistant loaded. Ready to help!", LogLevel.Info);
+        LogManager.Info("Multiplayer Assistant loaded. Ready to help!");
     }
 
     private void OnPingCommand(string cmd, string[] args)
     {
-        this.Monitor.Log("pong", LogLevel.Info);
+        LogManager.Info("pong", "Console"); // "Console" 为上下文标签，可根据需要替换
     }
 
     
