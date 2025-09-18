@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableHarmony>true</EnableHarmony>
+    <!-- 仅当外部传入时才使用手动路径；默认走自动探测 -->
+    <GamePath Condition=" '$(GamePath)' != '' ">$(GamePath)</GamePath>
+    <!-- 固定 Mod 文件夹名 -->
+    <ModFolderName>MultiplayerAssistant</ModFolderName>
+    <ModZipPath>$(ProjectDir)..</ModZipPath>
+    <EnableGameDebugging>false</EnableGameDebugging>
+    <EnableModDeploy>false</EnableModDeploy>
+    <EnableModZip>false</EnableModZip>
+    <BundleExtraAssemblies>All</BundleExtraAssemblies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Pathoschild.Stardew.ModBuildConfig" Version="4.4.0" />
+  </ItemGroup>
+
+  <!-- 自动复制清单/资源 -->
+  <ItemGroup>
+    <None Include="manifest.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <!-- 例如：
+    <None Include="i18n\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="assets\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    -->
+  </ItemGroup>
+
+</Project>

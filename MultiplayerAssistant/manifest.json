@@ -1,0 +1,10 @@
+{
+    "Name": "Multiplayer Assistant",
+    "Author": "sycho3",
+    "Version": "1.0.0",
+    "Description": "Helper tools for Stardew Valley multiplayer.",
+    "UniqueID": "sycho3.MultiplayerAssistant",
+    "EntryDll": "MultiplayerAssistant.dll",
+    "MinimumApiVersion": "4.0.0",
+    "UpdateKeys": []
+}
