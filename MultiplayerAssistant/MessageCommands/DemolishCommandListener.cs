@@ -1,5 +1,6 @@
 using MultiplayerAssistant.Chat;
 using Microsoft.Xna.Framework;
+using StardewModdingAPI;
 using StardewValley;
 using StardewValley.Buildings;
 using StardewValley.Menus;
@@ -10,43 +11,64 @@ using System.Collections.Generic;
 
 namespace MultiplayerAssistant.MessageCommands
 {
+    /// <summary>
+    /// 处理拆除建筑命令的监听器
+    /// </summary>
     internal class DemolishCommandListener
     {
         private EventDrivenChatBox chatBox;
+        private readonly IMonitor monitor;
 
-        public DemolishCommandListener(EventDrivenChatBox chatBox)
+        public DemolishCommandListener(EventDrivenChatBox chatBox, IMonitor monitor)
         {
             this.chatBox = chatBox;
+            this.monitor = monitor;
+            // 中文说明：初始化拆除命令监听器
+            monitor.Debug("拆除命令监听器初始化完成", nameof(DemolishCommandListener));
         }
 
         public void Enable()
         {
+            // 中文说明：启用拆除命令监听器
             chatBox.ChatReceived += chatReceived;
+            monitor.Debug("拆除命令监听器已启用", nameof(DemolishCommandListener));
         }
 
         public void Disable()
         {
+            // 中文说明：禁用拆除命令监听器
             chatBox.ChatReceived -= chatReceived;
+            monitor.Debug("拆除命令监听器已禁用", nameof(DemolishCommandListener));
         }
 
         private void destroyCabin(string farmerName, Building building, Farm f)
         {
+            // 中文说明：准备拆除建筑
+            monitor.Debug($"准备拆除建筑，玩家：{farmerName}，建筑类型：{building.GetType().Name}", nameof(DemolishCommandListener));
+            
             Action buildingLockFailed = delegate
             {
+                monitor.Warn($"无法获取建筑锁，玩家：{farmerName}", nameof(DemolishCommandListener));
                 chatBox.textBoxEnter("/message " + farmerName + " Error: " + Game1.content.LoadString("Strings\\UI:Carpenter_CantDemolish_LockFailed"));
             };
             Action continueDemolish = delegate
             {
                 if (building.daysOfConstructionLeft.Value > 0 || building.daysUntilUpgrade.Value > 0)
                 {
+                    // 中文说明：建筑正在建造或升级中
+                    monitor.Warn($"建筑正在建造/升级中，无法拆除，玩家：{farmerName}", nameof(DemolishCommandListener));
                     chatBox.textBoxEnter("/message " + farmerName + " Error: " + Game1.content.LoadString("Strings\\UI:Carpenter_CantDemolish_DuringConstruction"));
                 }
                 else if (building.indoors.Value != null && building.indoors.Value is AnimalHouse && (building.indoors.Value as AnimalHouse).animalsThatLiveHere.Count > 0)
                 {
+                    // 中文说明：建筑内有动物
+                    monitor.Warn($"建筑内有动物，无法拆除，玩家：{farmerName}", nameof(DemolishCommandListener));
                     chatBox.textBoxEnter("/message " + farmerName + " Error: " + Game1.content.LoadString("Strings\\UI:Carpenter_CantDemolish_AnimalsHere"));
                 }
                 else if (building.indoors.Value != null && building.indoors.Value.farmers.Any())
                 {
+                    // 中文说明：建筑内有玩家
+                    monitor.Warn($"建筑内有玩家，无法拆除，玩家：{farmerName}", nameof(DemolishCommandListener));
                     chatBox.textBoxEnter("/message " + farmerName + " Error: " + Game1.content.LoadString("Strings\\UI:Carpenter_CantDemolish_PlayerHere"));
                 }
                 else
@@ -73,6 +95,8 @@ namespace MultiplayerAssistant.MessageCommands
 
                         if (f.destroyStructure(building))
                         {
+                            // 中文说明：成功拆除建筑
+                            monitor.Info($"成功拆除建筑，玩家：{farmerName}，建筑类型：{building.GetType().Name}", nameof(DemolishCommandListener));
                             _ = building.tileY.Value;
                             _ = building.tilesHigh.Value;
                             Game1.flashAlpha = 1f;
@@ -82,6 +106,11 @@ namespace MultiplayerAssistant.MessageCommands
                             {
                                 f.objects[new Vector2(building.tileX.Value + building.tilesWide.Value / 2, building.tileY.Value + building.tilesHigh.Value / 2)] = chest;
                             }
+                        }
+                        else
+                        {
+                            // 中文说明：拆除失败
+                            monitor.Error($"拆除建筑失败，玩家：{farmerName}", nameof(DemolishCommandListener));
                         }
                     }
                 }
@@ -118,16 +147,19 @@ namespace MultiplayerAssistant.MessageCommands
             {
                 return;
             }
-            // Private message chatKind is 3
+            // 中文说明：私聊消息类型为 3
             if (e.ChatKind == 3 && tokens[0] == "demolish")
             {
-                // Find the farmer it came from and determine their location
+                monitor.Debug($"收到拆除命令：{e.Message}", nameof(DemolishCommandListener));
+                // 中文说明：查找发送命令的玩家并确定其位置
                 foreach (var farmer in Game1.otherFarmers.Values)
                 {
                     if (farmer.UniqueMultiplayerID == e.SourceFarmerId)
                     {
                         if (tokens.Length != 1)
                         {
+                            // 中文说明：命令格式错误
+                            monitor.Warn($"无效的拆除命令格式，玩家：{farmer.Name}", nameof(DemolishCommandListener));
                             chatBox.textBoxEnter("/message " + farmer.Name + " Error: Invalid command usage.");
                             chatBox.textBoxEnter("/message " + farmer.Name + " Usage: demolish");
                             return;
@@ -135,8 +167,9 @@ namespace MultiplayerAssistant.MessageCommands
                         var location = farmer.currentLocation;
                         if (location is Farm f)
                         {
-                            // 兼容 1.6：直接通过像素坐标换算瓦片坐标，避免依赖已变更的方法名
+                            // 中文说明：兼容 1.6 - 直接通过像素坐标换算瓦片坐标，避免依赖已变更的方法名
                             var tileLocation = new Vector2((int)(farmer.Position.X / 64f), (int)(farmer.Position.Y / 64f));
+                            monitor.Debug($"玩家 {farmer.Name} 位置：{tileLocation}", nameof(DemolishCommandListener));
                             switch (farmer.facingDirection.Value)
                             {
                                 case 1: // Right
@@ -156,8 +189,10 @@ namespace MultiplayerAssistant.MessageCommands
                             {
                                 if (building.occupiesTile(tileLocation))
                                 {
+                                    // 中文说明：找到目标建筑
+                                    monitor.Info($"找到建筑：{building.GetType().Name}，位置：{tileLocation}", nameof(DemolishCommandListener));
+                                    
                                     // Determine if the building can be demolished
-
 
                                     // 中文说明：不再依赖 BluePrint 构造器，直接通过类型保护 Shipping Bin
                                     if (building is ShippingBin)
@@ -178,7 +213,8 @@ namespace MultiplayerAssistant.MessageCommands
 
                                         if (num <= 1)
                                         {
-                                            // Must have at least one shipping bin at all times.
+                                            // 中文说明：必须保留至少一个运输箱
+                                            monitor.Warn($"不能拆除最后一个运输箱，玩家：{farmer.Name}", nameof(DemolishCommandListener));
                                             chatBox.textBoxEnter("/message " + farmer.Name + " Error: Can't demolish the last shipping bin.");
                                             return;
                                         }
@@ -187,6 +223,7 @@ namespace MultiplayerAssistant.MessageCommands
                                     if (building.indoors.Value is Cabin)
                                     {
                                         // 中文说明：Cabin 一律二次确认
+                                        monitor.Info($"检测到小屋，需要二次确认，玩家：{farmer.Name}", nameof(DemolishCommandListener));
                                         var responseActions = new Dictionary<string, Action>();
                                         responseActions["yes"] = genDestroyCabinAction(farmer.Name, building);
                                         responseActions["no"] = genCancelDestroyCabinAction(farmer.Name);
@@ -195,16 +232,21 @@ namespace MultiplayerAssistant.MessageCommands
                                         return;
                                     }
 
-                                    // The cabin doesn't belong to anyone. Destroy it immediately without confirmation.
+                                    // 中文说明：非小屋建筑，直接拆除无需确认
+                                    monitor.Info($"直接拆除非小屋建筑，玩家：{farmer.Name}", nameof(DemolishCommandListener));
                                     destroyCabin(farmer.Name, building, f);
                                     return;
                                 }
                             }
 
+                            // 中文说明：未找到建筑
+                            monitor.Warn($"未找到可拆除的建筑，玩家：{farmer.Name}，目标位置：{tileLocation}", nameof(DemolishCommandListener));
                             chatBox.textBoxEnter("/message " + farmer.Name + " Error: No building found. You must be standing next to a building and facing it.");
                         }
                         else
                         {
+                            // 中文说明：不在农场中，无法拆除
+                            monitor.Warn($"玩家 {farmer.Name} 不在农场中，无法拆除建筑", nameof(DemolishCommandListener));
                             chatBox.textBoxEnter("/message " + farmer.Name + " Error: You cannot demolish buildings outside of the farm.");
                         }
                         break;

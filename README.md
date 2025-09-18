@@ -1,6 +1,33 @@
 # Multiplayer-Assistant
 Multiplayer Assistant 是一个用于《星露谷物语》的 SMAPI Mod，为多人联机提供辅助功能。
 
+## 最新更新 (v1.1.0)
+
+### 代码优化和日志增强
+- **全面日志系统**：所有功能模块都已添加详细的 DEBUG 日志记录，便于调试和问题排查
+- **中文注释**：所有代码关键部分都添加了中文注释，提高代码可读性
+- **统一日志框架**：使用 `MonitorExtensions` 模块提供统一的日志输出格式和上下文标签
+- **最新 API 兼容**：完全基于 apis_en 文档中的最新 API，确保与 Stardew Valley 1.6 的兼容性
+
+### 修复的模块
+1. **ModEntry**：主入口模块已优化，添加了完整的日志记录
+2. **Chat 模块**：EventDrivenChatBox 现在包含详细的事件日志
+3. **MessageCommands 模块**：
+   - BuildCommandListener：建造命令监听器
+   - DemolishCommandListener：拆除命令监听器  
+   - PauseCommandListener：暂停命令监听器
+   - ServerCommandListener：服务器命令监听器
+4. **HostAutomatorStages 模块**：
+   - AutomatedHost：自动化主机功能
+   - ProcessDialogueBehaviorLink：对话处理行为链
+5. **Crops 模块**：CropSaver 作物保护器功能
+6. **Utils 模块**：各种实用工具类
+
+### 日志使用说明
+- 默认启用 DEBUG 级别日志，可通过 SMAPI 控制台查看
+- 日志格式：`[MultiplayerAssistant][模块名] 日志内容`
+- 可通过 `MonitorExtensions.SetLoggingEnabled(false)` 关闭日志
+
 ## 兼容 Stardew Valley 1.6 的重要说明
 
 - 本 MOD 已完成对 SDV 1.6 的初步兼容并成功通过 Release 构建。

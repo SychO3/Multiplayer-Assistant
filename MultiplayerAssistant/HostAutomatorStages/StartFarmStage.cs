@@ -328,13 +328,13 @@ namespace MultiplayerAssistant.HostAutomatorStages
             automatedHost = new AutomatedHost(helper, monitor, config, chatBox);
             automatedHost.Enable();
 
-            buildCommandListener = new BuildCommandListener(chatBox);
+            buildCommandListener = new BuildCommandListener(chatBox, monitor);
             buildCommandListener.Enable();
-            demolishCommandListener = new DemolishCommandListener(chatBox);
+            demolishCommandListener = new DemolishCommandListener(chatBox, monitor);
             demolishCommandListener.Enable();
-            pauseCommandListener = new PauseCommandListener(chatBox);
+            pauseCommandListener = new PauseCommandListener(chatBox, monitor);
             pauseCommandListener.Enable();
-            serverCommandListener = new ServerCommandListener(helper, config, chatBox);
+            serverCommandListener = new ServerCommandListener(helper, config, chatBox, monitor);
             serverCommandListener.Enable();
         }
 

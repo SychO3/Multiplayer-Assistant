@@ -39,7 +39,7 @@ namespace MultiplayerAssistant.HostAutomatorStages
                 new ProcessPauseBehaviorLink(),
                 new ProcessWaitTicksBehaviorLink(),
                 new SkipEventsBehaviorLink(),
-                new ProcessDialogueBehaviorLink(config),
+                new ProcessDialogueBehaviorLink(monitor, config),
                 new SkipShippingMenuBehaviorLink(),
                 new CheckForParsnipSeedsBehaviorLink(),
                 new ExitFarmHouseBehaviorLink(),
