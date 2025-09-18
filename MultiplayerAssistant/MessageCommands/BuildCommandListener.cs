@@ -1,6 +1,8 @@
 using MultiplayerAssistant.Chat;
 using Microsoft.Xna.Framework;
 using StardewValley;
+using StardewValley.Menus;
+using StardewValley.Locations;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -30,43 +32,25 @@ namespace MultiplayerAssistant.MessageCommands
         {
             void buildCabin(EventDrivenChatBox chatBox, Farmer farmer)
             {
-                var point = farmer.getTileLocation();
-                var blueprint = new BluePrint(cabinBlueprintName);
-                switch (farmer.facingDirection.Value)
+                // 中文说明：按方案A（apis_en 推荐流程）适配 1.6：
+                // 通过打开 CarpenterMenu 进入官方建造界面，由玩家（主机）选择相应蓝图并放置。
+                // 优点：兼容性最佳，不依赖 BluePrint 或内部 buildLock 签名。
+
+                // 1) 打开木匠铺 UI（CarpenterMenu）
+                try
                 {
-                    case 1: // Right
-                        point.X++;
-                        point.Y -= (blueprint.tilesHeight / 2);
-                        break;
-                    case 2: // Down
-                        point.X -= (blueprint.tilesWidth / 2);
-                        point.Y++;
-                        break;
-                    case 3: // Left
-                        point.X -= blueprint.tilesWidth;
-                        point.Y -= (blueprint.tilesHeight / 2);
-                        break;
-                    default: // 0 = Up
-                        point.X -= (blueprint.tilesWidth / 2);
-                        point.Y -= blueprint.tilesHeight;
-                        break;
+                    // 1.6 构造签名需要提供 builder 与位置，这里使用 Robin 与 ScienceHouse
+                    Game1.activeClickableMenu = new CarpenterMenu("Robin", Game1.getLocationFromName("ScienceHouse"));
+                    // 2) 提示玩家选择目标蓝图并放置
+                    chatBox.textBoxEnter("/message " + farmer.Name + " Opened Carpenter menu. Please select '" + cabinBlueprintName + "' and place it in front of you.");
+                    // 中文提示
+                    chatBox.textBoxEnter("/message " + farmer.Name + " 已为你打开木匠铺界面，请选择 '" + cabinBlueprintName + "' 并在你面前一格放置。");
                 }
-                Game1.player.team.buildLock.RequestLock(delegate
+                catch (Exception)
                 {
-                    if (Game1.locationRequest == null)
-                    {
-                        var res = ((Farm)Game1.getLocationFromName("Farm")).buildStructure(blueprint, new Vector2(point.X, point.Y), Game1.player, false);
-                        if (res)
-                        {
-                            chatBox.textBoxEnter(farmer.Name + " just built a " + cabinBlueprintName);
-                        }
-                        else
-                        {
-                            chatBox.textBoxEnter("/message " + farmer.Name + " Error: " + Game1.content.LoadString("Strings\\UI:Carpenter_CantBuild"));
-                        }
-                    }
-                    Game1.player.team.buildLock.ReleaseLock();
-                });
+                    // 兼容性兜底：若直接打开失败，则给出操作指引
+                    chatBox.textBoxEnter("/message " + farmer.Name + " Error: Unable to open Carpenter menu automatically on SDV 1.6. Please visit Robin and select '" + cabinBlueprintName + "'.");
+                }
             }
             return buildCabin;
         }

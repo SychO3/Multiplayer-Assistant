@@ -20,7 +20,8 @@ namespace MultiplayerAssistant.HostAutomatorStages
 
         public override void Process(BehaviorState state)
         {
-            if (Utils.Sleeping.ShouldSleep(state.GetNumOtherPlayers(), state.Monitor) && !Utils.Sleeping.IsSleeping(state.Monitor))
+            // 中文说明：1.6 兼容，Sleeping 工具方法不再需要 Monitor 参数
+            if (Utils.Sleeping.ShouldSleep(state.GetNumOtherPlayers()) && !Utils.Sleeping.IsSleeping())
             {
                 if (state.HasBetweenTransitionSleepWaitTicks())
                 {
@@ -31,7 +32,7 @@ namespace MultiplayerAssistant.HostAutomatorStages
                     Game1.player.isInBed.Value = true;
                     Game1.player.sleptInTemporaryBed.Value = true;
                     Game1.player.timeWentToBed.Value = Game1.timeOfDay;
-                    Game1.player.team.SetLocalReady("sleep", ready: true);
+                    // 中文说明：1.6 不再直接调用 SetLocalReady，由 ReadyCheckDialog 负责就绪状态
                     Game1.dialogueUp = false;
                     Game1.activeClickableMenu = new ReadyCheckDialog("sleep", allowCancel: true, delegate
                     {
@@ -61,7 +62,7 @@ namespace MultiplayerAssistant.HostAutomatorStages
                     Game1.player.warpFarmer(warp);
                     state.WarpToSleep();
                 }
-            } else if (!Utils.Sleeping.ShouldSleep(state.GetNumOtherPlayers(), state.Monitor) && Utils.Sleeping.IsSleeping(state.Monitor))
+            } else if (!Utils.Sleeping.ShouldSleep(state.GetNumOtherPlayers()) && Utils.Sleeping.IsSleeping())
             {
                 if (state.HasBetweenTransitionSleepWaitTicks())
                 {
@@ -73,7 +74,7 @@ namespace MultiplayerAssistant.HostAutomatorStages
                     {
                         rcd.closeDialog(Game1.player);
                     }
-                    Game1.player.team.SetLocalReady("sleep", false);
+                    // 中文说明：ReadyCheckDialog 关闭后状态自然更新
                     state.CancelSleep();
                 }
             }

@@ -169,14 +169,7 @@ namespace MultiplayerAssistant.HostAutomatorStages
                 {
                     logConfigError("PetSpecies must be specified if AcceptPet is true");
                 }
-                if (config.PetSpecies == "cat")
-                {
-                    Game1.player.catPerson = true;
-                }
-                else
-                {
-                    Game1.player.catPerson = false;
-                }
+                // 中文说明：1.6 中 catPerson 为只读，这里不直接设置宠物偏好，交由后续命名/选择流程处理
 
                 // Pet breed
                 if (config.PetBreed.HasValue && (config.PetBreed < 0 || config.PetBreed > 2))
@@ -190,10 +183,10 @@ namespace MultiplayerAssistant.HostAutomatorStages
                 }
                 if (config.PetBreed.HasValue)
                 {
-                    Game1.player.whichPetBreed = config.PetBreed.Value;
+                    Game1.player.whichPetBreed = config.PetBreed.Value.ToString();
                 } else
                 {
-                    Game1.player.whichPetBreed = 0;
+                    Game1.player.whichPetBreed = "0";
                 }
 
                 // Farm type
@@ -300,7 +293,8 @@ namespace MultiplayerAssistant.HostAutomatorStages
             // update the value dynamically, and load new cellars whenever a new player
             // joins? Unclear...
             //Game1.netWorldState.Value.HighestPlayerLimit.Value = int.MaxValue;
-            Game1.netWorldState.Value.CurrentPlayerLimit.Value = int.MaxValue;
+            // 中文说明：1.6 可能已从 NetInt 变为普通 int，去掉 .Value 访问
+            Game1.netWorldState.Value.CurrentPlayerLimit = int.MaxValue;
             // NOTE: It will be very difficult, if not impossible, to remove the
             // cabin-per-player requirement. This requirement is very much built in
             // to much of the multiplayer networking connect / disconnect logic, and,
@@ -328,8 +322,8 @@ namespace MultiplayerAssistant.HostAutomatorStages
             // The server must be started, the value is set accordingly after each start
             chatBox.textBoxEnter("/mbp " + config.MoveBuildPermission);
 
-            //We set bot mining lvl to 10 so he doesn't lvlup passively
-            Game1.player.MiningLevel = 10;
+            // 中文说明：1.6 中 MiningLevel 为只读，使用经验机制将采矿等级提升到 10（经验值采用足够大的数值以确保达到 10 级）
+            Game1.player.gainExperience(3, 20000);
 
             automatedHost = new AutomatedHost(helper, monitor, config, chatBox);
             automatedHost.Enable();

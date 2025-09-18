@@ -18,14 +18,15 @@ namespace MultiplayerAssistant.HostAutomatorStages
 
         public override void Process(BehaviorState state)
         {
-            if (Utils.Festivals.ShouldLeave(state.GetNumOtherPlayers(), state.Monitor) && !Utils.Festivals.IsWaitingToLeave(state.Monitor))
+            // 中文说明：1.6 兼容，Utils.Festivals 方法签名调整且不再直接调用 SetLocalReady
+            if (Utils.Festivals.ShouldLeave(state.GetNumOtherPlayers()) && !Utils.Festivals.IsWaitingToLeave())
             {
                 if (state.HasBetweenTransitionFestivalEndWaitTicks())
                 {
                     state.DecrementBetweenTransitionFestivalEndWaitTicks();
                 } else
                 {
-                    Game1.player.team.SetLocalReady("festivalEnd", ready: true);
+                    // 中文说明：ReadyCheckDialog 负责就绪状态
                     Game1.activeClickableMenu = new ReadyCheckDialog("festivalEnd", allowCancel: true, delegate (Farmer who)
                     {
                         Game1.currentLocation.currentEvent.forceEndFestival(who);
@@ -33,7 +34,7 @@ namespace MultiplayerAssistant.HostAutomatorStages
                     });
                     state.WaitForFestivalEnd();
                 }
-            } else if (!Utils.Festivals.ShouldLeave(state.GetNumOtherPlayers(), state.Monitor) && Utils.Festivals.IsWaitingToLeave(state.Monitor))
+            } else if (!Utils.Festivals.ShouldLeave(state.GetNumOtherPlayers()) && Utils.Festivals.IsWaitingToLeave())
             {
                 if (state.HasBetweenTransitionFestivalEndWaitTicks())
                 {
@@ -44,7 +45,7 @@ namespace MultiplayerAssistant.HostAutomatorStages
                     {
                         rcd.closeDialog(Game1.player);
                     }
-                    Game1.player.team.SetLocalReady("festivalEnd", false);
+                    // 中文说明：对话框关闭后状态自然更新
                     state.StopWaitingForFestivalEnd();
                 }
             }

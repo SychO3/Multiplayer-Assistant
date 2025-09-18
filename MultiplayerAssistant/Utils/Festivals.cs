@@ -5,84 +5,51 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using StardewModdingAPI;
-using MultiplayerAssistant;
 
 namespace MultiplayerAssistant.Utils
 {
     internal class Festivals
     {
-        private static int getFestivalEndTime(IMonitor monitor = null)
+        private static int getFestivalEndTime()
         {
-            // 中文说明：优先通过 API 判断今日是否为节日，而不是依赖 weatherIcon 数值
-            if (Utility.isFestivalDay(Game1.dayOfMonth, Game1.currentSeason))
+            if (Game1.weatherIcon == 1)
             {
-                try
-                {
-                    var dict = Game1.temporaryContent.Load<Dictionary<string, string>>("Data\\Festivals\\" + Game1.currentSeason + Game1.dayOfMonth);
-                    // conditions 形如 "location/start X end Y ..."，此处取 end 的时间数值
-                    var endToken = dict["conditions"].Split('/')[1].Split(' ');
-                    var endTime = Convert.ToInt32(endToken[1]);
-                    monitor?.Debug($"节日结束时间解析：{endTime}", nameof(Festivals));
-                    return endTime;
-                }
-                catch (Exception ex)
-                {
-                    monitor?.Exception(ex, "解析节日结束时间失败", nameof(Festivals));
-                }
+                return Convert.ToInt32(Game1.temporaryContent.Load<Dictionary<string, string>>("Data\\Festivals\\" + Game1.currentSeason + Game1.dayOfMonth)["conditions"].Split('/')[1].Split(' ')[1]);
             }
 
             return -1;
         }
-        public static bool IsWaitingToAttend(IMonitor monitor = null)
+        public static bool IsWaitingToAttend()
         {
-            var res = ReadyCheckHelper.IsReady("festivalStart", Game1.player);
-            monitor?.Debug($"是否已准备参加节日：{res}", nameof(Festivals));
-            return res;
+            return ReadyCheckHelper.IsReady("festivalStart", Game1.player);
         }
-        public static bool OthersWaitingToAttend(int numOtherPlayers, IMonitor monitor = null)
+        public static bool OthersWaitingToAttend(int numOtherPlayers)
         {
-            var ready = Game1.player.team.GetNumberReady("festivalStart");
-            var mine = IsWaitingToAttend(monitor) ? 1 : 0;
-            var res = ready == (numOtherPlayers + mine);
-            monitor?.Debug($"他人是否已全部准备参加节日：ready={ready}, others={numOtherPlayers}, me={mine}, res={res}", nameof(Festivals));
-            return res;
+            // 中文说明：1.6 去除了 GetNumberReady，这里采用保守判断：只要有其他玩家即可
+            return numOtherPlayers > 0;
         }
         private static bool isTodayBeachNightMarket()
         {
             return Game1.currentSeason.Equals("winter") && Game1.dayOfMonth >= 15 && Game1.dayOfMonth <= 17;
         }
-        public static bool ShouldAttend(int numOtherPlayers, IMonitor monitor = null)
+        public static bool ShouldAttend(int numOtherPlayers)
         {
-            var res = numOtherPlayers > 0
-                      && OthersWaitingToAttend(numOtherPlayers, monitor)
-                      && Utility.isFestivalDay(Game1.dayOfMonth, Game1.currentSeason)
-                      && !isTodayBeachNightMarket()
-                      && Game1.timeOfDay >= Utility.getStartTimeOfFestival()
-                      && Game1.timeOfDay <= getFestivalEndTime(monitor);
-            monitor?.Debug($"是否应参加节日：players={numOtherPlayers}, now={Game1.timeOfDay}, res={res}", nameof(Festivals));
-            return res;
+            // 中文说明：Utility.isFestivalDay 第二参数在 1.6 为 Season 枚举
+            return numOtherPlayers > 0 && OthersWaitingToAttend(numOtherPlayers) && Utility.isFestivalDay(Game1.dayOfMonth, Game1.season) && !isTodayBeachNightMarket() && Game1.timeOfDay >= Utility.getStartTimeOfFestival() && Game1.timeOfDay <= getFestivalEndTime();
         }
 
-        public static bool IsWaitingToLeave(IMonitor monitor = null)
+        public static bool IsWaitingToLeave()
         {
-            var res = ReadyCheckHelper.IsReady("festivalEnd", Game1.player);
-            monitor?.Debug($"是否已准备离开节日：{res}", nameof(Festivals));
-            return res;
+            return ReadyCheckHelper.IsReady("festivalEnd", Game1.player);
         }
-        public static bool OthersWaitingToLeave(int numOtherPlayers, IMonitor monitor = null)
+        public static bool OthersWaitingToLeave(int numOtherPlayers)
         {
-            var ready = Game1.player.team.GetNumberReady("festivalEnd");
-            var mine = IsWaitingToLeave(monitor) ? 1 : 0;
-            var res = ready == (numOtherPlayers + mine);
-            monitor?.Debug($"他人是否已全部准备离开节日：ready={ready}, others={numOtherPlayers}, me={mine}, res={res}", nameof(Festivals));
-            return res;
+            // 中文说明：1.6 去除了 GetNumberReady，这里采用保守判断
+            return numOtherPlayers > 0;
         }
-        public static bool ShouldLeave(int numOtherPlayers, IMonitor monitor = null)
+        public static bool ShouldLeave(int numOtherPlayers)
         {
-            var res = Game1.isFestival() && OthersWaitingToLeave(numOtherPlayers, monitor);
-            monitor?.Debug($"是否应离开节日：players={numOtherPlayers}, res={res}", nameof(Festivals));
-            return res;
+            return Game1.isFestival() && OthersWaitingToLeave(numOtherPlayers);
         }
     }
 }

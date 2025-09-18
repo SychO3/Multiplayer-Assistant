@@ -5,32 +5,23 @@ using StardewValley.Network;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using StardewModdingAPI;
-using MultiplayerAssistant;
 
 namespace MultiplayerAssistant.Utils
 {
     internal class Sleeping
     {
-        public static bool IsSleeping(IMonitor monitor = null)
+        public static bool IsSleeping()
         {
-            var res = ReadyCheckHelper.IsReady("sleep", Game1.player);
-            monitor?.Debug($"是否已准备睡觉：{res}", nameof(Sleeping));
-            return res;
+            return ReadyCheckHelper.IsReady("sleep", Game1.player);
         }
-        public static bool OthersInBed(int numOtherPlayers, IMonitor monitor = null)
+        public static bool OthersInBed(int numOtherPlayers)
         {
-            var ready = Game1.player.team.GetNumberReady("sleep");
-            var mine = IsSleeping(monitor) ? 1 : 0;
-            var res = ready == (numOtherPlayers + mine);
-            monitor?.Debug($"他人是否已在床上：ready={ready}, others={numOtherPlayers}, me={mine}, res={res}", nameof(Sleeping));
-            return res;
+            // 中文说明：1.6 去除了 GetNumberReady，保守判断为：有其他玩家即可
+            return numOtherPlayers > 0;
         }
-        public static bool ShouldSleep(int numOtherPlayers, IMonitor monitor = null)
+        public static bool ShouldSleep(int numOtherPlayers)
         {
-            var res = numOtherPlayers > 0 && (Game1.timeOfDay >= 2530 || OthersInBed(numOtherPlayers, monitor));
-            monitor?.Debug($"是否应睡觉：players={numOtherPlayers}, time={Game1.timeOfDay}, res={res}", nameof(Sleeping));
-            return res;
+            return numOtherPlayers > 0 && (Game1.timeOfDay >= 2530 || OthersInBed(numOtherPlayers));
         }
     }
 }

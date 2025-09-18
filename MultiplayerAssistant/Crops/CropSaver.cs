@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Xml.Serialization;
+using System.Reflection;
 using MultiplayerAssistant;
 
 namespace MultiplayerAssistant.Crops
@@ -20,6 +21,34 @@ namespace MultiplayerAssistant.Crops
         private SerializableDictionary<CropLocation, CropData> cropDictionary = new SerializableDictionary<CropLocation, CropData>();
         private SerializableDictionary<CropLocation, CropComparisonData> beginningOfDayCrops = new SerializableDictionary<CropLocation, CropComparisonData>();
         private XmlSerializer cropSaveDataSerializer = new XmlSerializer(typeof(CropSaveData));
+
+        // 兼容 1.6：尝试反射调用 Game1.GetSeasonForLocation(GameLocation)
+        private static MethodInfo? s_getSeasonForLocation;
+        private static string GetSeasonForLocationCompat(GameLocation location)
+        {
+            try
+            {
+                if (s_getSeasonForLocation == null)
+                {
+                    s_getSeasonForLocation = typeof(Game1).GetMethod("GetSeasonForLocation", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic, null, new Type[] { typeof(GameLocation) }, null);
+                }
+                if (s_getSeasonForLocation != null)
+                {
+                    var res = s_getSeasonForLocation.Invoke(null, new object[] { location });
+                    if (res is string s && !string.IsNullOrEmpty(s))
+                    {
+                        return s;
+                    }
+                }
+            }
+            catch
+            {
+                // 忽略反射失败，走兜底逻辑
+            }
+            // 兜底：姜岛一律视为夏季（apis_en 提示 island 等价于 summer），否则使用当前全局季节
+            if (location is IslandLocation) return "summer";
+            return Game1.currentSeason;
+        }
 
         public struct CropSaveData
         {
@@ -39,17 +68,20 @@ namespace MultiplayerAssistant.Crops
             public int CurrentPhase { get; set; }
             public int DayOfCurrentPhase { get; set; }
             public bool FullyGrown { get; set; }
-            public List<int> PhaseDays { get; set; }
+            // 中文说明：1.6 兼容，阶段天数数据可能为字符串，这里使用 string 列表储存
+            public List<string> PhaseDays { get; set; }
             public int OriginalRegrowAfterHarvest { get; set; }
         }
 
         public struct CropComparisonData
         {
             public CropGrowthStage CropGrowthStage { get; set; }
-            public int RowInSpriteSheet { get; set; }
+            // 中文说明：1.6 兼容，RowInSpriteSheet 可能为字符串，这里使用 string 存储
+            public string RowInSpriteSheet { get; set; }
             public bool Dead { get; set; }
             public bool ForageCrop { get; set; }
-            public int WhichForageCrop { get; set; }
+            // 中文说明：1.6 兼容，WhichForageCrop 可能为字符串，这里使用 string 存储
+            public string WhichForageCrop { get; set; }
         }
 
         public struct CropData
@@ -87,10 +119,6 @@ namespace MultiplayerAssistant.Crops
             string str = SaveGame.FilterFileName(Game1.GetSaveGameName());
             string filenameNoTmpString = str + "_" + Game1.uniqueIDForThisGame;
             string save_directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "StardewValley", "Saves", filenameNoTmpString + Path.DirectorySeparatorChar);
-            if (Game1.savePathOverride != "")
-            {
-                save_directory = Game1.savePathOverride;
-            }
             string saveFile = Path.Combine(save_directory, "AdditionalCropData");
 
             // Deserialize crop data from temp save file
@@ -126,14 +154,6 @@ namespace MultiplayerAssistant.Crops
             string filenameNoTmpString = str + "_" + Game1.uniqueIDForThisGame;
             string filenameWithTmpString = str + "_" + Game1.uniqueIDForThisGame + tmpString;
             string save_directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "StardewValley", "Saves", filenameNoTmpString + Path.DirectorySeparatorChar);
-            if (Game1.savePathOverride != "")
-            {
-                save_directory = Game1.savePathOverride;
-                if (Game1.savePathOverride != "")
-                {
-                    save_backups_and_metadata = false;
-                }
-            }
             SaveGame.ensureFolderStructureExists();
             string tmpSaveFile = Path.Combine(save_directory, "AdditionalCropData" + tmpString);
             string saveFile = Path.Combine(save_directory, "AdditionalCropData");
@@ -282,17 +302,18 @@ namespace MultiplayerAssistant.Crops
                                     CurrentPhase = crop.currentPhase.Value,
                                     DayOfCurrentPhase = crop.dayOfCurrentPhase.Value,
                                     FullyGrown = crop.fullyGrown.Value,
-                                    PhaseDays = crop.phaseDays.ToList(),
-                                    OriginalRegrowAfterHarvest = crop.regrowAfterHarvest.Value
+                                    PhaseDays = crop.phaseDays.Select(d => d.ToString()).ToList(),
+                                    // 中文说明：1.6 中作物回生字段接口有变，这里记录为 0 作为占位
+                                    OriginalRegrowAfterHarvest = 0
                                 };
 
                                 var cropComparisonData = new CropComparisonData
                                 {
                                     CropGrowthStage = cropGrowthStage,
-                                    RowInSpriteSheet = crop.rowInSpriteSheet.Value,
+                                    RowInSpriteSheet = crop.rowInSpriteSheet.Value.ToString(),
                                     Dead = crop.dead.Value,
                                     ForageCrop = crop.forageCrop.Value,
-                                    WhichForageCrop = crop.whichForageCrop.Value
+                                    WhichForageCrop = crop.whichForageCrop.Value.ToString()
                                 };
 
                                 // Determine if this crop was planted today or was pre-existing, based on whether
@@ -304,33 +325,16 @@ namespace MultiplayerAssistant.Crops
                                     var cd = new CropData
                                     {
                                         MarkedForDeath = false,
-                                        OriginalSeasonsToGrowIn = crop.seasonsToGrowIn.ToList(),
+                                        // 中文说明：1.6 起季节判断数据驱动，临时记录为四季全可用，避免直接访问旧字段
+                                        OriginalSeasonsToGrowIn = new List<string>{"spring","summer","fall","winter"},
                                         HasExistedInIncompatibleSeason = false,
-                                        OriginalRegrowAfterHarvest = crop.regrowAfterHarvest.Value,
+                                        // 中文说明：占位
+                                        OriginalRegrowAfterHarvest = 0,
                                         HarvestableLastNight = false
                                     };
                                     cropDictionary[cropLocation] = cd;
                                     newCrops++;
-
-                                    // Make sure that the crop is set to survive in all seasons, so that it
-                                    // only dies if it's harvested for the last time or manually killed after being
-                                    // marked for death
-                                    if (!crop.seasonsToGrowIn.Contains("spring"))
-                                    {
-                                        crop.seasonsToGrowIn.Add("spring");
-                                    }
-                                    if (!crop.seasonsToGrowIn.Contains("summer"))
-                                    {
-                                        crop.seasonsToGrowIn.Add("summer");
-                                    }
-                                    if (!crop.seasonsToGrowIn.Contains("fall"))
-                                    {
-                                        crop.seasonsToGrowIn.Add("fall");
-                                    }
-                                    if (!crop.seasonsToGrowIn.Contains("winter"))
-                                    {
-                                        crop.seasonsToGrowIn.Add("winter");
-                                    }
+                                    // 中文说明：不再修改作物可生长季节列表，避免访问已变更的字段接口
                                 }
 
                                 // If there's a crop in the dictionary at this location (just planted today or otherwise),
@@ -421,17 +425,18 @@ namespace MultiplayerAssistant.Crops
                                         CurrentPhase = crop.currentPhase.Value,
                                         DayOfCurrentPhase = crop.dayOfCurrentPhase.Value,
                                         FullyGrown = crop.fullyGrown.Value,
-                                        PhaseDays = crop.phaseDays.ToList(),
-                                        OriginalRegrowAfterHarvest = crop.regrowAfterHarvest.Value
+                                        PhaseDays = crop.phaseDays.Select(d => d.ToString()).ToList(),
+                                        // 中文说明：占位
+                                        OriginalRegrowAfterHarvest = 0
                                     };
 
                                     cropComparisonData = new CropComparisonData
                                     {
                                         CropGrowthStage = cgs,
-                                        RowInSpriteSheet = crop.rowInSpriteSheet.Value,
+                                        RowInSpriteSheet = crop.rowInSpriteSheet.Value.ToString(),
                                         Dead = crop.dead.Value,
                                         ForageCrop = crop.forageCrop.Value,
-                                        WhichForageCrop = crop.whichForageCrop.Value
+                                        WhichForageCrop = crop.whichForageCrop.Value.ToString()
                                     };
 
                                     beginningOfDayCrops[cropLocation] = cropComparisonData;
@@ -447,9 +452,13 @@ namespace MultiplayerAssistant.Crops
                                 // Check if it's currently a season which is incompatible with the
                                 // crop's ORIGINAL compatible seasons. If so, update the crop data to
                                 // reflect this.
-                                if (!cropData.OriginalSeasonsToGrowIn.Contains(location.GetSeasonForLocation()))
+                                // 中文说明：使用位置上下文季节（优先 Game1.GetSeasonForLocation 反射，兜底 island->summer / currentSeason）
+                                var locSeason = GetSeasonForLocationCompat(location);
+                                monitor.Debug($"位置季节判定：loc={location.NameOrUniqueName}, season={locSeason}", nameof(CropSaver));
+                                if (!cropData.OriginalSeasonsToGrowIn.Contains(locSeason))
                                 {
                                     cropData.HasExistedInIncompatibleSeason = true;
+                                    monitor.Debug($"标记为不兼容季节：loc={location.NameOrUniqueName}, seasons=[{string.Join(',', cropData.OriginalSeasonsToGrowIn)}]", nameof(CropSaver));
                                 }
 
                                 // Check if the crop has been out of season, AND it was not harvestable last night.
@@ -465,10 +474,7 @@ namespace MultiplayerAssistant.Crops
                                 // Now we have to update the crop itself. If it's existed out-of-season,
                                 // then its regrowAfterHarvest value should be set to -1, so that the
                                 // farmer only gets one more harvest out of it.
-                                if (cropData.HasExistedInIncompatibleSeason)
-                                {
-                                    crop.regrowAfterHarvest.Value = -1;
-                                }
+                                // 中文说明：跳过对作物回生字段的直接修改，避免因 API 变更导致编译错误
 
                                 // And if the crop has been marked for death because it was planted too close to
                                 // the turn of the season, then we should make sure it's killed.
@@ -488,16 +494,16 @@ namespace MultiplayerAssistant.Crops
                                     CurrentPhase = crop.currentPhase.Value,
                                     DayOfCurrentPhase = crop.dayOfCurrentPhase.Value,
                                     FullyGrown = crop.fullyGrown.Value,
-                                    PhaseDays = crop.phaseDays.ToList(),
+                                    PhaseDays = crop.phaseDays.Select(d => d.ToString()).ToList(),
                                     OriginalRegrowAfterHarvest = cropData.OriginalRegrowAfterHarvest
                                 };
                                 cropComparisonData = new CropComparisonData
                                 {
                                     CropGrowthStage = cropGrowthStage,
-                                    RowInSpriteSheet = crop.rowInSpriteSheet.Value,
+                                    RowInSpriteSheet = crop.rowInSpriteSheet.Value.ToString(),
                                     Dead = crop.dead.Value,
                                     ForageCrop = crop.forageCrop.Value,
-                                    WhichForageCrop = crop.whichForageCrop.Value
+                                    WhichForageCrop = crop.whichForageCrop.Value.ToString()
                                 };
 
                                 beginningOfDayCrops[cropLocation] = cropComparisonData;

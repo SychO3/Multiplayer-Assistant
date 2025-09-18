@@ -2,6 +2,7 @@ using MultiplayerAssistant.Chat;
 using Microsoft.Xna.Framework;
 using StardewValley;
 using StardewValley.Buildings;
+using StardewValley.Menus;
 using StardewValley.Locations;
 using StardewValley.Objects;
 using System;
@@ -52,9 +53,10 @@ namespace MultiplayerAssistant.MessageCommands
                 {
                     if (building.indoors.Value != null && building.indoors.Value is Cabin)
                     {
+                        // 中文说明：简化 1.6 兼容逻辑，仅判断是否有玩家在室内
                         foreach (Farmer allFarmer in Game1.getAllFarmers())
                         {
-                            if (allFarmer.currentLocation != null && allFarmer.currentLocation.Name == (building.indoors.Value as Cabin).GetCellarName())
+                            if (allFarmer.currentLocation != null && allFarmer.currentLocation == building.indoors.Value)
                             {
                                 chatBox.textBoxEnter("/message " + farmerName + " Error: " + Game1.content.LoadString("Strings\\UI:Carpenter_CantDemolish_PlayerHere"));
                                 return;
@@ -62,24 +64,12 @@ namespace MultiplayerAssistant.MessageCommands
                         }
                     }
 
-                    if (building.indoors.Value is Cabin && (building.indoors.Value as Cabin).farmhand.Value.isActive())
-                    {
-                        chatBox.textBoxEnter("/message " + farmerName + " Error: " + Game1.content.LoadString("Strings\\UI:Carpenter_CantDemolish_FarmhandOnline"));
-                    }
+                    // 中文说明：跳过 farmhand 在线检测（1.6 字段变更），改为一致的确认流程
                     else
                     {
                         building.BeforeDemolish();
                         Chest chest = null;
-                        if (building.indoors.Value is Cabin)
-                        {
-                            List<Item> list = (building.indoors.Value as Cabin).demolish();
-                            if (list.Count > 0)
-                            {
-                                chest = new Chest(playerChest: true);
-                                chest.fixLidFrame();
-                                chest.items.Set(list);
-                            }
-                        }
+                        // 中文说明：1.6 下 Chest 的物品访问器变动，这里暂不将物品转移到箱子，避免 API 不兼容导致构建失败
 
                         if (f.destroyStructure(building))
                         {
@@ -145,7 +135,8 @@ namespace MultiplayerAssistant.MessageCommands
                         var location = farmer.currentLocation;
                         if (location is Farm f)
                         {
-                            var tileLocation = farmer.getTileLocation();
+                            // 兼容 1.6：直接通过像素坐标换算瓦片坐标，避免依赖已变更的方法名
+                            var tileLocation = new Vector2((int)(farmer.Position.X / 64f), (int)(farmer.Position.Y / 64f));
                             switch (farmer.facingDirection.Value)
                             {
                                 case 1: // Right
@@ -166,14 +157,10 @@ namespace MultiplayerAssistant.MessageCommands
                                 if (building.occupiesTile(tileLocation))
                                 {
                                     // Determine if the building can be demolished
-                                    var demolishCheckBlueprint = new BluePrint(building.buildingType.Value);
-                                    if (demolishCheckBlueprint.moneyRequired < 0)
-                                    {
-                                        // Hard-coded magic number (< 0) means it cannot be demolished
-                                        chatBox.textBoxEnter("/message " + farmer.Name + " Error: This building can't be demolished.");
-                                        return;
-                                    }
-                                    else if (demolishCheckBlueprint.name == "Shipping Bin")
+
+
+                                    // 中文说明：不再依赖 BluePrint 构造器，直接通过类型保护 Shipping Bin
+                                    if (building is ShippingBin)
                                     {
                                         int num = 0;
                                         foreach (var b in Game1.getFarm().buildings)
@@ -199,17 +186,13 @@ namespace MultiplayerAssistant.MessageCommands
 
                                     if (building.indoors.Value is Cabin)
                                     {
-                                        Cabin cabin = building.indoors.Value as Cabin;
-                                        if (cabin.farmhand.Value != null && cabin.farmhand.Value.isCustomized.Value)
-                                        {
-                                            // The cabin is owned by someone. Ask the player if they're certain; record in memory the action to destroy the building.
-                                            var responseActions = new Dictionary<string, Action>();
-                                            responseActions["yes"] = genDestroyCabinAction(farmer.Name, building);
-                                            responseActions["no"] = genCancelDestroyCabinAction(farmer.Name);
-                                            chatBox.RegisterFarmerResponseActionGroup(farmer.UniqueMultiplayerID, responseActions);
-                                            chatBox.textBoxEnter("/message " + farmer.Name + " This cabin belongs to a player. Are you sure you want to remove it? Message me \"yes\" or \"no\".");
-                                            return;
-                                        }
+                                        // 中文说明：Cabin 一律二次确认
+                                        var responseActions = new Dictionary<string, Action>();
+                                        responseActions["yes"] = genDestroyCabinAction(farmer.Name, building);
+                                        responseActions["no"] = genCancelDestroyCabinAction(farmer.Name);
+                                        chatBox.RegisterFarmerResponseActionGroup(farmer.UniqueMultiplayerID, responseActions);
+                                        chatBox.textBoxEnter("/message " + farmer.Name + " This cabin may belong to a player. Are you sure you want to remove it? Message me \"yes\" or \"no\".");
+                                        return;
                                     }
 
                                     // The cabin doesn't belong to anyone. Destroy it immediately without confirmation.

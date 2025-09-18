@@ -14,22 +14,27 @@ namespace MultiplayerAssistant.HostAutomatorStages
         private static Assembly assembly = typeof(Game1).Assembly;
         private static Type readyCheckType = assembly.GetType("StardewValley.ReadyCheck");
         private static Type netRefType = typeof(NetRef<>);
-        private static Type readyCheckNetRefType = netRefType.MakeGenericType(readyCheckType);
+        private static Type readyCheckNetRefType = (readyCheckType != null) ? netRefType.MakeGenericType(readyCheckType) : null;
         private static Type netStringDictionaryType = typeof(NetStringDictionary<,>);
-        private static Type readyCheckDictionaryType = netStringDictionaryType.MakeGenericType(readyCheckType, readyCheckNetRefType);
+        private static Type readyCheckDictionaryType = (readyCheckNetRefType != null && readyCheckType != null) ? netStringDictionaryType.MakeGenericType(readyCheckType, readyCheckNetRefType) : null;
 
         private static FieldInfo readyChecksFieldInfo = typeof(FarmerTeam).GetField("readyChecks", BindingFlags.NonPublic | BindingFlags.Instance);
         private static object readyChecks = null;
 
-        private static MethodInfo readyChecksAddMethodInfo = readyCheckDictionaryType.GetMethod("Add", new Type[] { typeof(string), readyCheckType });
-        private static PropertyInfo readyChecksItemPropertyInfo = readyCheckDictionaryType.GetProperty("Item");
+        private static MethodInfo readyChecksAddMethodInfo = (readyCheckDictionaryType != null && readyCheckType != null) ? readyCheckDictionaryType.GetMethod("Add", new Type[] { typeof(string), readyCheckType }) : null;
+        private static PropertyInfo readyChecksItemPropertyInfo = readyCheckDictionaryType?.GetProperty("Item");
 
-        private static FieldInfo readyPlayersFieldInfo = readyCheckType.GetField("readyPlayers", BindingFlags.NonPublic | BindingFlags.Instance);
+        private static FieldInfo readyPlayersFieldInfo = readyCheckType?.GetField("readyPlayers", BindingFlags.NonPublic | BindingFlags.Instance);
 
         private static Dictionary<string, NetFarmerCollection> readyPlayersDictionary = new Dictionary<string, NetFarmerCollection>();
 
         public static void OnDayStarted(object sender, StardewModdingAPI.Events.DayStartedEventArgs e)
         {
+            // 基本防御：若反射类型不可用则直接返回，避免空引用
+            if (readyCheckType == null || readyChecksFieldInfo == null || readyChecksItemPropertyInfo == null)
+            {
+                return;
+            }
             if (readyChecks == null)
             {
                 readyChecks = readyChecksFieldInfo.GetValue(Game1.player.team);
@@ -40,9 +45,9 @@ namespace MultiplayerAssistant.HostAutomatorStages
                 Game1.getFarm().mailbox();
             }
 
-            //Unlocks the sewer
-            if (!Game1.player.eventsSeen.Contains(295672) && Game1.netWorldState.Value.MuseumPieces.Count() >= 60) {
-                Game1.player.eventsSeen.Add(295672);
+            //Unlocks the sewer（1.6 事件ID改为字符串）
+            if (!Game1.player.eventsSeen.Contains("295672") && Game1.netWorldState.Value.MuseumPieces.Count() >= 60) {
+                Game1.player.eventsSeen.Add("295672");
             }
 
             //Upgrade farmhouse to match highest level cabin
@@ -59,16 +64,21 @@ namespace MultiplayerAssistant.HostAutomatorStages
                 object readyCheck = null;
                 try
                 {
-                    readyCheck = Activator.CreateInstance(readyCheckType, new object[] { checkName });
-                    readyChecksAddMethodInfo.Invoke(readyChecks, new object[] { checkName, readyCheck });
+                    if (readyCheckType != null)
+                    {
+                        readyCheck = Activator.CreateInstance(readyCheckType, new object[] { checkName });
+                        readyChecksAddMethodInfo?.Invoke(readyChecks, new object[] { checkName, readyCheck });
+                    }
                 }
                 catch (Exception)
                 {
                     readyCheck = readyChecksItemPropertyInfo.GetValue(readyChecks, new object[] { checkName });
                 }
 
-                NetFarmerCollection readyPlayers = (NetFarmerCollection) readyPlayersFieldInfo.GetValue(readyCheck);
-                newReadyPlayersDictionary.Add(checkName, readyPlayers);
+                NetFarmerCollection readyPlayers = (NetFarmerCollection) (readyPlayersFieldInfo?.GetValue(readyCheck));
+                // 为空则给一个空集合，避免可空性警告
+                var rc = readyPlayers ?? new NetFarmerCollection();
+                newReadyPlayersDictionary.Add(checkName, rc);
             }
             readyPlayersDictionary = newReadyPlayersDictionary;
         }
@@ -81,6 +91,10 @@ namespace MultiplayerAssistant.HostAutomatorStages
         // Prerequisite: OnDayStarted() must have been called at least once prior to this method being called.
         public static bool IsReady(string checkName, Farmer player)
         {
+            if (readyCheckType == null || readyChecksItemPropertyInfo == null)
+            {
+                return false;
+            }
             if (readyPlayersDictionary.TryGetValue(checkName, out NetFarmerCollection readyPlayers) && readyPlayers != null)
             {
                 return readyPlayers.Contains(player);
@@ -89,24 +103,28 @@ namespace MultiplayerAssistant.HostAutomatorStages
             object readyCheck = null;
             try
             {
-                readyCheck = Activator.CreateInstance(readyCheckType, new object[] { checkName });
-                readyChecksAddMethodInfo.Invoke(readyChecks, new object[] { checkName, readyCheck });
+                if (readyCheckType != null)
+                {
+                    readyCheck = Activator.CreateInstance(readyCheckType, new object[] { checkName });
+                    readyChecksAddMethodInfo?.Invoke(readyChecks, new object[] { checkName, readyCheck });
+                }
             }
             catch (Exception)
             {
                 readyCheck = readyChecksItemPropertyInfo.GetValue(readyChecks, new object[] { checkName });
             }
 
-            readyPlayers = (NetFarmerCollection) readyPlayersFieldInfo.GetValue(readyCheck);
+            readyPlayers = (NetFarmerCollection) (readyPlayersFieldInfo?.GetValue(readyCheck));
+            var rc2 = readyPlayers ?? new NetFarmerCollection();
             if (readyPlayersDictionary.ContainsKey(checkName))
             {
-                readyPlayersDictionary[checkName] = readyPlayers;
+                readyPlayersDictionary[checkName] = rc2;
             } else
             {
-                readyPlayersDictionary.Add(checkName , readyPlayers);
+                readyPlayersDictionary.Add(checkName , rc2);
             }
 
-            return readyPlayers.Contains(player);
+            return rc2.Contains(player);
         }
     }
 }

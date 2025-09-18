@@ -69,8 +69,8 @@ namespace MultiplayerAssistant
                 if (Context.IsMainPlayer && Game1.player is Farmer farmer)
                 {
                     // 中文说明：每 Tick 维持生命与体力上限，不输出频繁日志以免刷屏
-                    farmer.health = farmer.maxHealth;
-                    farmer.stamina = farmer.maxStamina;
+                    farmer.health = farmer.maxHealth; // int 赋值保持不变
+                    farmer.stamina = farmer.maxStamina.Value; // 1.6 中 maxStamina 为 NetInt，取 Value 并转为 float 隐式
                 }
             }
         }

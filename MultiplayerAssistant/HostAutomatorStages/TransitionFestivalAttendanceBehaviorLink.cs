@@ -29,7 +29,8 @@ namespace MultiplayerAssistant.HostAutomatorStages
 
         public override void Process(BehaviorState state)
         {
-            if (Utils.Festivals.ShouldAttend(state.GetNumOtherPlayers(), state.Monitor) && !Utils.Festivals.IsWaitingToAttend(state.Monitor))
+            // 中文说明：1.6 迁移：使用 Utils.Festivals 的当前签名，无需传入 Monitor
+            if (Utils.Festivals.ShouldAttend(state.GetNumOtherPlayers()) && !Utils.Festivals.IsWaitingToAttend())
             {
                 if (state.HasBetweenTransitionFestivalAttendanceWaitTicks())
                 {
@@ -38,7 +39,7 @@ namespace MultiplayerAssistant.HostAutomatorStages
                 {
                     var location = Game1.getLocationFromName(getLocationOfFestival());
                     var warp = new Warp(0, 0, location.NameOrUniqueName, 0, 0, false);
-                    Game1.player.team.SetLocalReady("festivalStart", ready: true);
+                    // 中文说明：准备状态由 ReadyCheckDialog 驱动，无需直接调用 SetLocalReady（1.6 中可能不存在该方法）
                     Game1.activeClickableMenu = new ReadyCheckDialog("festivalStart", allowCancel: true, delegate (Farmer who)
                     {
                         Game1.exitActiveMenu();
@@ -50,7 +51,7 @@ namespace MultiplayerAssistant.HostAutomatorStages
                     });
                     state.WaitForFestivalAttendance();
                 }
-            } else if (!Utils.Festivals.ShouldAttend(state.GetNumOtherPlayers(), state.Monitor) && Utils.Festivals.IsWaitingToAttend(state.Monitor))
+            } else if (!Utils.Festivals.ShouldAttend(state.GetNumOtherPlayers()) && Utils.Festivals.IsWaitingToAttend())
             {
                 if (state.HasBetweenTransitionFestivalAttendanceWaitTicks())
                 {
@@ -61,7 +62,7 @@ namespace MultiplayerAssistant.HostAutomatorStages
                     {
                         rcd.closeDialog(Game1.player);
                     }
-                    Game1.player.team.SetLocalReady("festivalStart", false);
+                    // 中文说明：同上，ReadyCheckDialog 关闭后状态自然更新
                     state.StopWaitingForFestivalAttendance();
                 }
             }

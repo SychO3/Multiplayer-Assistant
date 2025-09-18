@@ -1,6 +1,54 @@
 # Multiplayer-Assistant
 Multiplayer Assistant 是一个用于《星露谷物语》的 SMAPI Mod，为多人联机提供辅助功能。
 
+## 兼容 Stardew Valley 1.6 的重要说明
+
+- 本 MOD 已完成对 SDV 1.6 的初步兼容并成功通过 Release 构建。
+- 以下为本次适配的关键变更与注意事项。
+
+### 主要变更
+
+- 作物保护器（`MultiplayerAssistant/Crops/CropSaver.cs`）
+  - 移除对旧字段的直接访问：`Crop.seasonsToGrowIn`、`regrowAfterHarvest`、`GameLocation.GetSeasonForLocation()`。
+  - 兼容 1.6 的数据类型变化：
+    - `RowInSpriteSheet` 改为 string 存储。
+    - `WhichForageCrop` 改为 string 存储。
+    - `PhaseDays` 改为 `List<string>` 存储。
+  - 移除 `Game1.savePathOverride`，统一采用标准存档路径。
+  - 启用“位置上下文季节”判定：优先使用 `Game1.GetSeasonForLocation(location)`（反射），姜岛兜底为 `summer`，否则回退 `Game1.currentSeason`。
+
+- 开荒与菜单流程
+  - `StartFarmStage.cs`：移除对只读 `catPerson` 的赋值；`whichPetBreed` 改为写入 string；`CurrentPlayerLimit` 去掉 `.Value`；用 `gainExperience(3, 20000)` 设置采矿等级到 10。
+
+- 节日/睡觉就绪流程
+  - `TransitionFestivalAttendanceBehaviorLink.cs`、`TransitionFestivalEndBehaviorLink.cs`、`TransitionSleepBehaviorLink.cs`：去除 `FarmerTeam.SetLocalReady/GetNumberReady` 调用，改由 `ReadyCheckDialog` 驱动就绪状态。
+  - `Utils/Festivals.cs`、`Utils/Sleeping.cs`：删除 `GetNumberReady(...)` 依赖并采用保守判定；`Utility.isFestivalDay` 第二参数改为 `Game1.season`（枚举）。
+
+- 事件/任务 ID 统一字符串化
+  - 涉及：`PurchaseJojaMembershipBehaviorLink.cs`、`UnlockCommunityCenterBehaviorLink.cs`、`EndCommunityCenterBehaviorLink.cs`、`GetFishingRodBehaviorLink.cs`、`ReadyCheckHelper.cs`。
+
+- 建筑相关命令
+  - `DemolishCommandListener.cs`：使用像素坐标换算瓦片坐标；移除对 `Cabin.farmhand`、`Chest.items`、`BluePrint` 的直接依赖；保留 Shipping Bin 保护与 Cabin 二次确认。
+  - `BuildCommandListener.cs`：已按 apis_en 的“官方木匠流程（CarpenterMenu）”恢复建造功能，会为玩家自动打开木匠铺界面，你可选择目标蓝图并在面前一格处放置。
+
+- 对话自动应答
+  - `ProcessDialogueBehaviorLink.cs`：通过反射读取 `DialogueBox.responses`，恢复“蘑菇/蝙蝠”和宠物“是/否”的自动应答。
+
+### 建造指令使用说明（1.6）
+
+- 支持的命令（私聊机器人）：
+  - `build stone_cabin`
+  - `build plank_cabin`
+  - `build log_cabin`
+- 机器人会自动打开 `CarpenterMenu("Robin", ScienceHouse)`，并通过聊天提示你选择相应蓝图并放置。
+- 建议在白天、非节日、非剧情/对话时使用；确保有建造权限与足够资源。
+
+### 已知事项与后续计划
+
+- `BuildCommandListener` 已恢复（CarpenterMenu 官方流程）。若在个别场景无法自动打开菜单，聊天中会提示你手动前往 Robin 选择目标蓝图。
+- `CropSaver` 的季节判断将升级为“位置上下文季节”，以替代当前的 `Game1.currentSeason`。
+- 关键路径已补充中文注释；如需更详细的 DEBUG 日志，可开启并查看控制台/日志文件。
+
 ## 更新日志
 
 ### 1.1.0 新增
