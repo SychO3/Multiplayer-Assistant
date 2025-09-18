@@ -20,10 +20,16 @@ Multiplayer Assistant 是一个用于《星露谷物语》的 SMAPI Mod，为多
    - 功能：持续将主机生命值与体力保持为最大，避免无人值守时倒下或卡死。
    - 配置：无（始终启用，仅主机执行）。
    - 实现：公开 API（`Game1.player.health/maxHealth`、`Game1.player.stamina/maxStamina`），日志统一用 `MonitorExtensions`。
- - 时间控制命令（TimeControlService）
-   - 功能：提供 `ma:time` 控制台命令，支持设置/前进游戏时间：`ma:time set <HHmm>`、`ma:time add <minutes>`（按 10 分钟步进优先调用 `Game1.performTenMinuteClockUpdate()`）。
-   - 配置：无（始终注册）。
-   - 实现：公开 API（`Game1.timeOfDay`、`Game1.performTenMinuteClockUpdate()`），日志统一用 `MonitorExtensions`。
+ - 事件驱动聊天封装（Chat/EventDrivenChatBox, Chat/ChatEventArgs）
+   - 功能：将 `ChatBox` 封装为事件与一次性响应组（关键词 -> 回调），更易于在主机侧实现基于聊天的交互与命令确认。
+   - API：基于游戏公开 API（重写 `ChatBox.receiveChatMessage(...)`），不使用 Harmony；全程使用 `MonitorExtensions` 输出 DEBUG 日志。
+   - 使用：
+     - 订阅事件：`EventDrivenChatBox.ChatReceived += (s, e) => { /* 处理 e.Message 等 */ };`
+     - 注册响应组：`RegisterFarmerResponseActionGroup(farmerId, new Dictionary<string, Action?> { ["yes"]=OnYes, ["no"]=OnNo });` 任意一个被触发后整组会被移除避免重复触发。
+- 时间控制命令（TimeControlService）
+  - 功能：提供 `ma:time` 控制台命令，支持设置/前进游戏时间：`ma:time set <HHmm>`、`ma:time add <minutes>`（按 10 分钟步进优先调用 `Game1.performTenMinuteClockUpdate()`）。
+  - 配置：无（始终注册）。
+  - 实现：公开 API（`Game1.timeOfDay`、`Game1.performTenMinuteClockUpdate()`），日志统一用 `MonitorExtensions`。
 
 ### 1.0.0 安全性与性能优化（AutoHostService）
 - 优化事件订阅生命周期：

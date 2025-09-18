@@ -1,78 +1,113 @@
-using HarmonyLib;
+using MultiplayerAssistant.Config;
+using MultiplayerAssistant.HostAutomatorStages;
 using StardewModdingAPI;
+using StardewModdingAPI.Events;
+using StardewValley;
 
-namespace MultiplayerAssistant;
-
-public class ModEntry : Mod
-{   
-    private Harmony? _harmony;
-    private ModConfig _config = new();
-    private AutoHostService? _autoHost;
-    private AutoMailService? _autoMail;
-    private TimeControlService? _timeControl;
-    private AutoPositionService? _autoPosition;
-    private AutoSkipService? _autoSkip;
-    private HostKeepAliveService? _keepAlive;
-
-    public override void Entry(IModHelper helper)
+namespace MultiplayerAssistant
+{
+    /// <summary>The mod entry point.</summary>
+    public class ModEntry : Mod
     {
-        // 初始化 Harmony 并应用补丁（如果有）
-        this._harmony = new Harmony(this.ModManifest.UniqueID);
-        this._harmony.PatchAll();
+        // TODO ModConfig value checking. But perhaps this actually should be done in the SelectFarmStage; if the
+        // farm with the name given by the config exists, then none of the rest of the config values really matter,
+        // except for the bat / mushroom decision and the pet name (the parts accessed mid-game rather than just at
+        // farm creation).
 
-        // 读取配置（不存在会自动创建）并控制日志输出
-        this._config = helper.ReadConfig<ModConfig>();
-        MonitorExtensions.SetDefaultPrefix(this.ModManifest.Name);
-        MonitorExtensions.SetLoggingEnabled(this._config.EnableDebugLogs);
+        // TODO Add more config options, like the ability to disable the crop saver (perhaps still keep track of crops
+        // in case it's enabled later, but don't alter them).
 
-        if (MonitorExtensions.IsLoggingEnabled)
-            this.Monitor.Info("调试日志已开启。", "Config");
+        // TODO Remove player limit (if the existing attempts haven't already succeeded in doing that).
+        
+        // TODO Make the host invisible to everyone else
+        
+        // TODO Consider what the automated host should do when another player proposes to them.
 
-        // 自动建房服务（受配置控制）
-        if (this._config.EnableAutoHost)
+        private WaitCondition titleMenuWaitCondition;
+        private ModConfig config;
+        private bool farmStageEnabled;
+
+        /*********
+        ** Public methods
+        *********/
+        /// <summary>The mod entry point, called after the mod is first loaded.</summary>
+        /// <param name="helper">Provides simplified APIs for writing mods.</param>
+        public override void Entry(IModHelper helper)
         {
-            this._autoHost = new AutoHostService(helper, this.Monitor, this._config);
-            this._autoHost.Initialize();
-            this.Monitor.Info("自动建房功能：已启用", "Config");
+            // 使用统一的日志扩展，设置默认前缀并开启调试日志
+            // 中文说明：为保证各功能点都能输出 DEBUG 级别日志，便于线上排查问题
+            MonitorExtensions.SetDefaultPrefix("MultiplayerAssistant");
+            MonitorExtensions.SetLoggingEnabled(true);
+            this.Monitor.Debug("Entry 开始，读取配置...", nameof(ModEntry));
+
+            this.config = helper.ReadConfig<ModConfig>();
+            this.Monitor.Debug("配置读取完成", nameof(ModEntry));
+
+            // ensure that the game environment is in a stable state before the mod starts executing
+            this.titleMenuWaitCondition = new WaitCondition(() => Game1.activeClickableMenu is StardewValley.Menus.TitleMenu, 5, this.Monitor);
+            helper.Events.GameLoop.UpdateTicked += OnUpdateTicked;
+            this.Monitor.Debug("已订阅 GameLoop.UpdateTicked 事件", nameof(ModEntry));
         }
-        else
+
+        /// <summary>
+        /// Event handler to wait until a specific condition is met before executing.
+        /// </summary>
+        private void OnUpdateTicked(object sender, UpdateTickedEventArgs e)
         {
-            this.Monitor.Info("自动建房功能：已禁用", "Config");
+            // 中文说明：等待进入标题菜单的稳定阶段后，再启动自动化开荒流程
+            if (!this.farmStageEnabled && this.titleMenuWaitCondition.IsMet())
+            {
+                this.farmStageEnabled = true; // 标记为已启用，避免重复触发
+                this.Monitor.Debug("TitleMenu 条件达成，启动 StartFarmStage", nameof(ModEntry));
+                new StartFarmStage(this.Helper, Monitor, config).Enable();
+            }
+            // 中文说明：仅在存档载入完成后，对主机玩家维持无限体力与生命，避免影响到客机玩家
+            // 最新 API 用法：Context.IsWorldReady 仍为推荐判断方式
+            if (Context.IsWorldReady) 
+            {
+                // 仅主机执行该逻辑，确保 ServerBot 角色定位（房主）
+                if (Context.IsMainPlayer && Game1.player is Farmer farmer)
+                {
+                    // 中文说明：每 Tick 维持生命与体力上限，不输出频繁日志以免刷屏
+                    farmer.health = farmer.maxHealth;
+                    farmer.stamina = farmer.maxStamina;
+                }
+            }
         }
 
-        // 自动打开并阅读未读邮件（受配置控制）
-        if (this._config.EnableAutoOpenUnreadMail)
+        /// <summary>
+        /// Represents wait condition.
+        /// </summary>
+        private class WaitCondition
         {
-            this._autoMail = new AutoMailService(helper, this.Monitor, this._config);
-            this._autoMail.Initialize();
-            this.Monitor.Info("自动打开并阅读未读邮件：已启用", "Config");
+            private readonly System.Func<bool> condition;
+            private int waitCounter;
+            private readonly IMonitor monitor;
+
+            public WaitCondition(System.Func<bool> condition, int initialWait, IMonitor monitor)
+            {
+                this.condition = condition;
+                this.waitCounter = initialWait;
+                this.monitor = monitor;
+            }
+
+            public bool IsMet()
+            {
+                if (this.waitCounter <= 0 && this.condition())
+                {
+                    // 中文说明：等待计数完毕且条件达成，输出一次调试日志（仅一次）
+                    // 使用 LogOnce 避免重复
+                    this.monitor.LogOnceWithContext(
+                        "WaitCondition 达成",
+                        LogLevel.Debug,
+                        nameof(WaitCondition)
+                    );
+                    return true;
+                }
+
+                this.waitCounter--;
+                return false;
+            }
         }
-        else
-        {
-            this.Monitor.Info("自动打开并阅读未读邮件：已禁用", "Config");
-        }
-
-        // 注册时间控制命令（始终可用）
-        this._timeControl = new TimeControlService(helper, this.Monitor);
-        this._timeControl.Initialize();
-        this.Monitor.Info("时间控制命令：已注册 (ma:time)", "Config");
-
-        // 每天开始时自动移动到农舍后方（始终启用）
-        this._autoPosition = new AutoPositionService(helper, this.Monitor);
-        this._autoPosition.Initialize();
-        this.Monitor.Info("每日自动定位：已启用 (Farm: 64,10)", "Config");
-
-        // 自动跳过节日/动画/剧情（始终启用）
-        this._autoSkip = new AutoSkipService(helper, this.Monitor);
-        this._autoSkip.Initialize();
-        this.Monitor.Info("自动跳过节日/剧情：已启用", "Config");
-
-        // 主机保活：无限体力/生命（始终启用，仅主机执行）
-        this._keepAlive = new HostKeepAliveService(helper, this.Monitor);
-        this._keepAlive.Initialize();
-        this.Monitor.Info("主机保活：已启用（HP/SP 保持最大）", "Config");
-
-        this.Monitor.Debug("入口初始化完成。", "Lifecycle");
     }
 }
-
