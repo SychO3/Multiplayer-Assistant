@@ -10,6 +10,14 @@ internal static class MonitorExtensions
 {
     private static readonly object SyncRoot = new();
     private static string _defaultPrefix = "[MultiplayerAssistant]";
+    private static volatile bool _loggingEnabled = false;
+
+    public static bool IsLoggingEnabled => _loggingEnabled;
+
+    public static void SetLoggingEnabled(bool enabled)
+    {
+        _loggingEnabled = enabled;
+    }
 
     public static void SetDefaultPrefix(string? prefix)
     {
@@ -30,6 +38,9 @@ internal static class MonitorExtensions
     {
         if (monitor == null)
             throw new ArgumentNullException(nameof(monitor));
+
+        if (!IsLoggingEnabled)
+            return;
 
         if (string.IsNullOrWhiteSpace(message))
             return;
@@ -64,6 +75,9 @@ internal static class MonitorExtensions
         if (monitor == null)
             throw new ArgumentNullException(nameof(monitor));
 
+        if (!IsLoggingEnabled)
+            return;
+
         if (string.IsNullOrWhiteSpace(message))
             return;
 
@@ -75,6 +89,9 @@ internal static class MonitorExtensions
     {
         if (monitor == null)
             throw new ArgumentNullException(nameof(monitor));
+
+        if (!IsLoggingEnabled)
+            return;
 
         if (string.IsNullOrWhiteSpace(message))
             return;

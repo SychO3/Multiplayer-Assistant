@@ -10,10 +10,11 @@
     <!-- 固定 Mod 文件夹名 -->
     <ModFolderName>MultiplayerAssistant</ModFolderName>
     <ModZipPath>$(ProjectDir)..</ModZipPath>
-    <EnableGameDebugging>false</EnableGameDebugging>
-    <EnableModDeploy>false</EnableModDeploy>
-    <EnableModZip>false</EnableModZip>
-    <BundleExtraAssemblies>All</BundleExtraAssemblies>
+    <EnableGameDebugging>true</EnableGameDebugging>
+    <EnableModDeploy>true</EnableModDeploy>
+    <EnableModZip>true</EnableModZip>
+    <!-- 仅拷贝必要依赖（或设为 None 只拷贝 mod DLL + manifest） -->
+    <BundleExtraAssemblies>None</BundleExtraAssemblies>
   </PropertyGroup>
 
   <ItemGroup>
