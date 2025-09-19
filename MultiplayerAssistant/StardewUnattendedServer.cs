@@ -874,8 +874,10 @@ namespace StardewUnattendedServer
                         Game1.netWorldState.Value.IsPaused = false;
                     }
                 }
-                else if (numPlayers <= 0 && Game1.timeOfDay >= 610 && Game1.timeOfDay <= 2500 && currentDate != eggFestival && currentDate != flowerDance && currentDate != luau && currentDate != danceOfJellies && currentDate != stardewValleyFair && currentDate != spiritsEve && currentDate != festivalOfIce && currentDate != feastOfWinterStar)
+                // 早上6点到凌晨2点之间，如果只有房主在线（没有其他玩家），则暂停游戏
+                else if (numPlayers <= 0 && Game1.timeOfDay >= 600 && Game1.timeOfDay <= 2600 && currentDate != eggFestival && currentDate != flowerDance && currentDate != luau && currentDate != danceOfJellies && currentDate != stardewValleyFair && currentDate != spiritsEve && currentDate != festivalOfIce && currentDate != feastOfWinterStar)
                 {
+                    this.Monitor.Debug($"暂停游戏：当前时间={Game1.timeOfDay}，在线玩家数={numPlayers}，只有房主在线", "PauseSystem");
                     Game1.netWorldState.Value.IsPaused = true;
                 }
 
