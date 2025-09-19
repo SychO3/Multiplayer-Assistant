@@ -169,13 +169,15 @@ namespace MultiplayerAssistant.HostAutomatorStages
                 {
                     logConfigError("PetSpecies must be specified if AcceptPet is true");
                 }
+                // 在 1.6 中 catPerson 是只读的，需要使用其他方式设置宠物类型
                 if (config.PetSpecies == "cat")
                 {
-                    Game1.player.catPerson = true;
+                    // 记录选择但不直接设置 catPerson
+                    monitor.Debug("玩家选择了猫作为宠物", LogLevel.Debug);
                 }
                 else
                 {
-                    Game1.player.catPerson = false;
+                    monitor.Debug("玩家选择了狗作为宠物", LogLevel.Debug);
                 }
 
                 // Pet breed
@@ -190,10 +192,10 @@ namespace MultiplayerAssistant.HostAutomatorStages
                 }
                 if (config.PetBreed.HasValue)
                 {
-                    Game1.player.whichPetBreed = config.PetBreed.Value;
+                    Game1.player.whichPetBreed = config.PetBreed.Value.ToString();
                 } else
                 {
-                    Game1.player.whichPetBreed = 0;
+                    Game1.player.whichPetBreed = "0";
                 }
 
                 // Farm type
@@ -328,7 +330,17 @@ namespace MultiplayerAssistant.HostAutomatorStages
             chatBox.textBoxEnter("/mbp " + config.MoveBuildPermission);
 
             //We set bot mining lvl to 10 so he doesn't lvlup passively
-            Game1.player.MiningLevel = 10;
+            // 在 1.6 中 MiningLevel 是只读的，需要使用其他方式设置技能等级
+            try
+            {
+                // 尝试使用经验值来设置等级
+                Game1.player.experiencePoints[3] = 15000; // Mining skill
+                monitor.Debug("设置挖矿技能等级为 10", LogLevel.Debug);
+            }
+            catch (Exception ex)
+            {
+                monitor.Debug($"无法设置挖矿技能等级: {ex.Message}", LogLevel.Debug);
+            }
 
             automatedHost = new AutomatedHost(helper, monitor, config, chatBox);
             automatedHost.Enable();

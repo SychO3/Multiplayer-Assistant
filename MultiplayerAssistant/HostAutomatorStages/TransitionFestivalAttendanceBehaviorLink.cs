@@ -38,7 +38,8 @@ namespace MultiplayerAssistant.HostAutomatorStages
                 {
                     var location = Game1.getLocationFromName(getLocationOfFestival());
                     var warp = new Warp(0, 0, location.NameOrUniqueName, 0, 0, false);
-                    Game1.player.team.SetLocalReady("festivalStart", ready: true);
+                    // 使用 ReadyCheckHelper 设置准备状态
+                    ReadyCheckHelper.SetLocalReady("festivalStart", true);
                     Game1.activeClickableMenu = new ReadyCheckDialog("festivalStart", allowCancel: true, delegate (Farmer who)
                     {
                         Game1.exitActiveMenu();
@@ -61,7 +62,8 @@ namespace MultiplayerAssistant.HostAutomatorStages
                     {
                         rcd.closeDialog(Game1.player);
                     }
-                    Game1.player.team.SetLocalReady("festivalStart", false);
+                    // 使用 ReadyCheckHelper 设置准备状态
+                    ReadyCheckHelper.SetLocalReady("festivalStart", false);
                     state.StopWaitingForFestivalAttendance();
                 }
             }

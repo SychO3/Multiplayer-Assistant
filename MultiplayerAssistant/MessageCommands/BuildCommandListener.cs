@@ -1,6 +1,8 @@
 ﻿using MultiplayerAssistant.Chat;
 using Microsoft.Xna.Framework;
 using StardewValley;
+using StardewValley.Buildings;
+using StardewModdingAPI;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -30,33 +32,51 @@ namespace MultiplayerAssistant.MessageCommands
         {
             void buildCabin(EventDrivenChatBox chatBox, Farmer farmer)
             {
-                var point = farmer.getTileLocation();
-                var blueprint = new BluePrint(cabinBlueprintName);
+                // 获取农民当前的瓦片位置
+                var point = new Vector2((int)(farmer.Position.X / 64f), (int)(farmer.Position.Y / 64f));
+                
+                // 获取建筑数据
+                var buildingData = Game1.buildingData;
+                string buildingType = cabinBlueprintName.Replace(" ", "");
+                
+                if (!buildingData.ContainsKey(buildingType))
+                {
+                    chatBox.textBoxEnter("/message " + farmer.Name + " Error: Building type not found.");
+                    return;
+                }
+                
+                var buildingInfo = buildingData[buildingType];
+                var tilesWidth = buildingInfo.Size.X;
+                var tilesHeight = buildingInfo.Size.Y;
+                
                 switch (farmer.facingDirection.Value)
                 {
                     case 1: // Right
                         point.X++;
-                        point.Y -= (blueprint.tilesHeight / 2);
+                        point.Y -= (tilesHeight / 2);
                         break;
                     case 2: // Down
-                        point.X -= (blueprint.tilesWidth / 2);
+                        point.X -= (tilesWidth / 2);
                         point.Y++;
                         break;
                     case 3: // Left
-                        point.X -= blueprint.tilesWidth;
-                        point.Y -= (blueprint.tilesHeight / 2);
+                        point.X -= tilesWidth;
+                        point.Y -= (tilesHeight / 2);
                         break;
                     default: // 0 = Up
-                        point.X -= (blueprint.tilesWidth / 2);
-                        point.Y -= blueprint.tilesHeight;
+                        point.X -= (tilesWidth / 2);
+                        point.Y -= tilesHeight;
                         break;
                 }
+                
                 Game1.player.team.buildLock.RequestLock(delegate
                 {
                     if (Game1.locationRequest == null)
                     {
-                        var res = ((Farm)Game1.getLocationFromName("Farm")).buildStructure(blueprint, new Vector2(point.X, point.Y), Game1.player, false);
-                        if (res)
+                        var farm = Game1.getFarm();
+                        // 使用新的建筑创建方法
+                        Building building = Building.CreateInstanceFromId(buildingType, point);
+                        if (building != null && farm.buildStructure(building))
                         {
                             chatBox.textBoxEnter(farmer.Name + " just built a " + cabinBlueprintName);
                         }

@@ -25,7 +25,8 @@ namespace MultiplayerAssistant.HostAutomatorStages
                     state.DecrementBetweenTransitionFestivalEndWaitTicks();
                 } else
                 {
-                    Game1.player.team.SetLocalReady("festivalEnd", ready: true);
+                    // 使用 ReadyCheckHelper 设置本地准备状态
+                    ReadyCheckHelper.SetLocalReady("festivalEnd", true);
                     Game1.activeClickableMenu = new ReadyCheckDialog("festivalEnd", allowCancel: true, delegate (Farmer who)
                     {
                         Game1.currentLocation.currentEvent.forceEndFestival(who);
@@ -44,7 +45,8 @@ namespace MultiplayerAssistant.HostAutomatorStages
                     {
                         rcd.closeDialog(Game1.player);
                     }
-                    Game1.player.team.SetLocalReady("festivalEnd", false);
+                    // 使用 ReadyCheckHelper 设置本地准备状态
+                    ReadyCheckHelper.SetLocalReady("festivalEnd", false);
                     state.StopWaitingForFestivalEnd();
                 }
             }

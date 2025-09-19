@@ -62,7 +62,7 @@ namespace MultiplayerAssistant.MessageCommands
                         }
                     }
 
-                    if (building.indoors.Value is Cabin && (building.indoors.Value as Cabin).farmhand.Value.isActive())
+                    if (building.indoors.Value is Cabin && (building.indoors.Value as Cabin).HasOwner && (building.indoors.Value as Cabin).IsOwnerActivated)
                     {
                         chatBox.textBoxEnter("/message " + farmerName + " Error: " + Game1.content.LoadString("Strings\\UI:Carpenter_CantDemolish_FarmhandOnline"));
                     }
@@ -77,7 +77,11 @@ namespace MultiplayerAssistant.MessageCommands
                             {
                                 chest = new Chest(playerChest: true);
                                 chest.fixLidFrame();
-                                chest.items.Set(list);
+                                chest.Items.Clear();
+                                foreach (var item in list)
+                                {
+                                    chest.Items.Add(item);
+                                }
                             }
                         }
 
@@ -145,7 +149,8 @@ namespace MultiplayerAssistant.MessageCommands
                         var location = farmer.currentLocation;
                         if (location is Farm f)
                         {
-                            var tileLocation = farmer.getTileLocation();
+                            // 获取农民当前的瓦片位置
+                            var tileLocation = new Vector2((int)(farmer.Position.X / 64f), (int)(farmer.Position.Y / 64f));
                             switch (farmer.facingDirection.Value)
                             {
                                 case 1: // Right
@@ -165,15 +170,22 @@ namespace MultiplayerAssistant.MessageCommands
                             {
                                 if (building.occupiesTile(tileLocation))
                                 {
-                                    // Determine if the building can be demolished
-                                    var demolishCheckBlueprint = new BluePrint(building.buildingType.Value);
-                                    if (demolishCheckBlueprint.moneyRequired < 0)
+                                    // 检查建筑是否可以被拆除
+                                    var buildingData = Game1.buildingData;
+                                    if (!buildingData.ContainsKey(building.buildingType.Value))
                                     {
-                                        // Hard-coded magic number (< 0) means it cannot be demolished
+                                        chatBox.textBoxEnter("/message " + farmer.Name + " Error: Unknown building type.");
+                                        return;
+                                    }
+                                    
+                                    var buildingInfo = buildingData[building.buildingType.Value];
+                                    // 检查是否是不可拆除的建筑（根据配置或其他属性判断）
+                                    if (building.buildingType.Value == "FarmHouse" || building.buildingType.Value == "Greenhouse")
+                                    {
                                         chatBox.textBoxEnter("/message " + farmer.Name + " Error: This building can't be demolished.");
                                         return;
                                     }
-                                    else if (demolishCheckBlueprint.name == "Shipping Bin")
+                                    else if (building.buildingType.Value == "Shipping Bin")
                                     {
                                         int num = 0;
                                         foreach (var b in Game1.getFarm().buildings)
@@ -200,7 +212,7 @@ namespace MultiplayerAssistant.MessageCommands
                                     if (building.indoors.Value is Cabin)
                                     {
                                         Cabin cabin = building.indoors.Value as Cabin;
-                                        if (cabin.farmhand.Value != null && cabin.farmhand.Value.isCustomized.Value)
+                                        if (cabin.HasOwner && cabin.IsOwnerActivated)
                                         {
                                             // The cabin is owned by someone. Ask the player if they're certain; record in memory the action to destroy the building.
                                             var responseActions = new Dictionary<string, Action>();
