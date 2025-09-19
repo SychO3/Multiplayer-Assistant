@@ -20,7 +20,7 @@ namespace MultiplayerAssistant.Utils
         }
         public static bool ShouldSleep(int numOtherPlayers)
         {
-            return numOtherPlayers > 0 && (Game1.timeOfDay >= 2530 || OthersInBed(numOtherPlayers));
+            return numOtherPlayers > 0 && (Game1.timeOfDay >= 1550 || OthersInBed(numOtherPlayers));
         }
     }
 }

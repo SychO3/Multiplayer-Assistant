@@ -2,6 +2,7 @@
 using StardewValley;
 using StardewValley.Locations;
 using StardewValley.Network;
+using StardewValley.Menus;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -24,6 +25,11 @@ namespace MultiplayerAssistant.HostAutomatorStages
 
         public static void OnDayStarted(object sender, StardewModdingAPI.Events.DayStartedEventArgs e)
         {
+            Console.WriteLine($"[MultiplayerAssistant] OnDayStarted 被调用 - 清理所有准备状态");
+            
+            // 重置睡觉尝试计数器
+            ResetSleepAttemptCounter();
+            
             // 清理所有准备状态
             ClearAllReadyStates();
             
@@ -52,17 +58,32 @@ namespace MultiplayerAssistant.HostAutomatorStages
             // 在新系统中不需要预先注册
         }
 
-        // 使用 ModData 检查玩家是否准备好
+        // 使用多种方式检查玩家是否准备好
         public static bool IsReady(string checkName, Farmer player)
         {
-            // 对于主机（ServerBot），总是返回 true
-            if (Game1.IsMasterGame && player == Game1.player)
-            {
-                return true;
-            }
-
+            // 首先检查自定义的 ModData 状态（用于主机）
             string key = MOD_DATA_PREFIX + checkName;
-            return player.modData.ContainsKey(key) && player.modData[key] == "true";
+            if (player.modData.ContainsKey(key))
+            {
+                return player.modData[key] == "true";
+            }
+            
+            // 如果是睡觉状态，检查游戏原生的睡觉状态
+            if (checkName == "sleep")
+            {
+                // 检查玩家是否在床上且已设置睡觉时间
+                bool isInBed = player.isInBed.Value;
+                bool hasTimeWentToBed = player.timeWentToBed.Value > 0;
+                bool isAnnounced = Game1.player.team.announcedSleepingFarmers.Contains(player);
+                
+                Console.WriteLine($"[MultiplayerAssistant] 检查玩家 {player.Name} 原生睡觉状态:");
+                Console.WriteLine($"[MultiplayerAssistant]   isInBed={isInBed}, timeWentToBed={player.timeWentToBed.Value}, isAnnounced={isAnnounced}");
+                
+                return isInBed && hasTimeWentToBed;
+            }
+            
+            // 其他状态默认为 false
+            return false;
         }
 
         // 使用 ModData 设置准备状态
@@ -72,6 +93,10 @@ namespace MultiplayerAssistant.HostAutomatorStages
             {
                 string key = MOD_DATA_PREFIX + checkName;
                 Game1.player.modData[key] = ready.ToString().ToLower();
+                
+                // 添加详细的调试信息
+                Console.WriteLine($"[MultiplayerAssistant] 玩家 {Game1.player.Name} 设置准备状态 {checkName} = {ready}");
+                Console.WriteLine($"[MultiplayerAssistant] 当前时间: {Game1.timeOfDay}, 是否为主机: {Game1.IsMasterGame}");
                 
                 // 通过网络同步给其他玩家
                 if (Context.IsMultiplayer)
@@ -92,27 +117,50 @@ namespace MultiplayerAssistant.HostAutomatorStages
         {
             if (!Context.IsMultiplayer)
             {
-                return 1; // 单人游戏总是返回1
+                return IsReady(checkName, Game1.player) ? 1 : 0;
             }
 
             int count = 0;
-            string key = MOD_DATA_PREFIX + checkName;
 
-            // 遍历所有在线玩家
+            // 遍历所有在线玩家，使用 IsReady 方法检查状态
             foreach (Farmer farmer in Game1.getOnlineFarmers())
             {
-                if (farmer.modData.ContainsKey(key) && farmer.modData[key] == "true")
+                if (IsReady(checkName, farmer))
                 {
                     count++;
-                }
-                // 主机（ServerBot）总是准备好的
-                else if (Game1.IsMasterGame && farmer == Game1.player)
-                {
-                    count++;
+                    Console.WriteLine($"[MultiplayerAssistant] 玩家 {farmer.Name} 已准备好 {checkName}");
                 }
             }
-
+            
+            Console.WriteLine($"[MultiplayerAssistant] 总共准备好的玩家: {count}/{Game1.getOnlineFarmers().Count}");
             return count;
+        }
+
+        // 重置睡觉尝试计数器（通过反射访问 TransitionSleepBehaviorLink 的私有字段）
+        private static void ResetSleepAttemptCounter()
+        {
+            try
+            {
+                var sleepLinkType = typeof(TransitionSleepBehaviorLink);
+                var sleepAttemptCountField = sleepLinkType.GetField("sleepAttemptCount", BindingFlags.NonPublic | BindingFlags.Static);
+                var sleepExecutionInProgressField = sleepLinkType.GetField("sleepExecutionInProgress", BindingFlags.NonPublic | BindingFlags.Static);
+                
+                if (sleepAttemptCountField != null)
+                {
+                    sleepAttemptCountField.SetValue(null, 0);
+                    Console.WriteLine($"[MultiplayerAssistant] 重置睡觉尝试计数器");
+                }
+                
+                if (sleepExecutionInProgressField != null)
+                {
+                    sleepExecutionInProgressField.SetValue(null, false);
+                    Console.WriteLine($"[MultiplayerAssistant] 重置睡觉执行状态");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MultiplayerAssistant] 重置睡觉状态失败: {ex.Message}");
+            }
         }
 
         // 清理所有准备状态
@@ -129,10 +177,20 @@ namespace MultiplayerAssistant.HostAutomatorStages
                 }
             }
             
+            Console.WriteLine($"[MultiplayerAssistant] 清理准备状态，找到 {keysToRemove.Count} 个状态需要清理");
+            
             // 移除所有准备状态
             foreach (var key in keysToRemove)
             {
+                Console.WriteLine($"[MultiplayerAssistant] 移除准备状态: {key}");
                 Game1.player.modData.Remove(key);
+            }
+            
+            // 检查是否还有活跃的睡觉对话框需要关闭
+            if (Game1.activeClickableMenu != null && Game1.activeClickableMenu is ReadyCheckDialog rcd)
+            {
+                Console.WriteLine($"[MultiplayerAssistant] 发现活跃的睡觉对话框，正在关闭");
+                Game1.exitActiveMenu();
             }
         }
     }
