@@ -1,4 +1,4 @@
-﻿namespace StardewUnattendedServer.Framework
+﻿namespace MultiplayerAssistant.Framework
 {
     class ModData
     {

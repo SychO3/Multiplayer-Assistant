@@ -1,12 +1,12 @@
 using StardewModdingAPI;
-using StardewUnattendedServer;
-using StardewUnattendedServer.Framework;
+using MultiplayerAssistant;
+using MultiplayerAssistant.Framework;
 
-namespace StardewUnattendedServer.Framework
+namespace MultiplayerAssistant.Framework
 {
     class ConfigMenu
     {
-        public ConfigMenu(StardewUnattendedServer sus, ModConfig config)
+        public ConfigMenu(MultiplayerAssistant sus, ModConfig config)
         {
             var configMenu = sus.Helper.ModRegistry.GetApi<IGenericModConfigMenuApi>("spacechase0.GenericModConfigMenu");
             if (configMenu is not null)

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using StardewUnattendedServer.Framework;
+using MultiplayerAssistant.Framework;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using StardewModdingAPI;
@@ -18,9 +18,9 @@ using SObject = StardewValley.Object;
 using System.Runtime.CompilerServices;
 using MultiplayerAssistant;
 
-namespace StardewUnattendedServer
+namespace MultiplayerAssistant
 {
-    public class StardewUnattendedServer : Mod
+    public class MultiplayerAssistant : Mod
     {
         /// <summary>The mod configuration from the player.</summary>
         private ModConfig Config = new ModConfig();
@@ -45,6 +45,15 @@ namespace StardewUnattendedServer
 
         // 玩家mod检测相关变量
         private readonly Dictionary<long, IMultiplayerPeer> connectedPeers = new Dictionary<long, IMultiplayerPeer>();  // 存储已连接的玩家信息
+        
+        // 缓存渲染文本，避免每帧都重新生成（根据API文档建议）
+        private string cachedServerOnText = "";
+        private string cachedServerKeyText = "";
+        private string cachedServerProfitText = "";
+        private string cachedServerPlayersText = "";
+        private int lastConnectionCount = -1;
+        private SButton lastServerHotKey = SButton.None;
+        private int lastProfitMargin = -1;
 
         private bool eventCommandUsed;
         private string sleepKeyword = "!";
@@ -114,6 +123,26 @@ namespace StardewUnattendedServer
         private int shippingMenuTicksUntilClick = 0;
 
 
+
+        // 安全的翻译方法，使用SMAPI推荐的fluent接口
+        private string SafeTranslation(string key, object tokens = null)
+        {
+            try
+            {
+                // 使用SMAPI推荐的fluent接口方式
+                var translation = Helper.Translation.Get(key);
+                if (tokens != null)
+                {
+                    translation = translation.Tokens(tokens);
+                }
+                return translation.Default(key); // 如果翻译失败，返回key作为fallback
+            }
+            catch (Exception ex)
+            {
+                this.Monitor.Error($"翻译获取失败 - Key: {key}, Error: {ex.Message}", "Translation");
+                return key; // fallback 返回key本身
+            }
+        }
 
         public override void Entry(IModHelper helper)
         {
@@ -252,13 +281,37 @@ namespace StardewUnattendedServer
             if (Game1.options.enableServer && IsEnabled)
             {
                 int connectionsCount = Game1.server.connectionsCount;
-                DrawTextBox(5, 100, Game1.dialogueFont, Helper.Translation.Get("server.on"));
-                DrawTextBox(5, 180, Game1.dialogueFont, Helper.Translation.Get("server.key", new { key = this.Config.serverHotKey }));
-                //int profitMargin = this.Config.profitmargin;
-                DrawTextBox(5, 260, Game1.dialogueFont, Helper.Translation.Get("server.profit", new { profit = this.Config.profitmargin }));
-                //DrawTextBox(5, 260, Game1.dialogueFont, $"Profit Margin: {profitMargin}%");
-                DrawTextBox(5, 340, Game1.dialogueFont, Helper.Translation.Get("server.players", new { players = connectionsCount }));
-                //DrawTextBox(5, 340, Game1.dialogueFont, $"{connectionsCount} Players Online");
+                
+                // 缓存昂贵的翻译操作，避免每帧都重新生成（根据API文档建议）
+                if (string.IsNullOrEmpty(cachedServerOnText))
+                {
+                    cachedServerOnText = SafeTranslation("server.on");
+                }
+                
+                if (lastServerHotKey != this.Config.serverHotKey)
+                {
+                    cachedServerKeyText = SafeTranslation("server.key", new { key = this.Config.serverHotKey });
+                    lastServerHotKey = this.Config.serverHotKey;
+                }
+                
+                if (lastProfitMargin != this.Config.profitmargin)
+                {
+                    cachedServerProfitText = SafeTranslation("server.profit", new { profit = this.Config.profitmargin });
+                    lastProfitMargin = this.Config.profitmargin;
+                }
+                
+                if (lastConnectionCount != connectionsCount)
+                {
+                    cachedServerPlayersText = SafeTranslation("server.players", new { players = connectionsCount });
+                    lastConnectionCount = connectionsCount;
+                }
+                
+                // 绘制缓存的文本
+                DrawTextBox(5, 100, Game1.dialogueFont, cachedServerOnText);
+                DrawTextBox(5, 180, Game1.dialogueFont, cachedServerKeyText);
+                DrawTextBox(5, 260, Game1.dialogueFont, cachedServerProfitText);
+                DrawTextBox(5, 340, Game1.dialogueFont, cachedServerPlayersText);
+                
                 if (Game1.server.getInviteCode() != null)
                 {
                     string inviteCode = Game1.server.getInviteCode();
@@ -464,7 +517,7 @@ namespace StardewUnattendedServer
                 }
             }
 
-            //write code to a InviteCode.txt in the StardewUnattendedServer mod folder
+            //write code to a InviteCode.txt in the MultiplayerAssistant mod folder
             if (Game1.options.enableServer)
             {
                 if (inviteCodeTXT != Game1.server.getInviteCode())
@@ -477,7 +530,7 @@ namespace StardewUnattendedServer
                     {
 
                         //Pass the filepath and filename to the StreamWriter Constructor
-                        StreamWriter sw = new StreamWriter("Mods/StardewUnattendedServer/InviteCode.txt");
+                        StreamWriter sw = new StreamWriter("Mods/MultiplayerAssistant/InviteCode.txt");
 
                         //Write a line of text
                         sw.WriteLine(inviteCodeTXT);
@@ -508,7 +561,7 @@ namespace StardewUnattendedServer
                     {
 
                         //Pass the filepath and filename to the StreamWriter Constructor
-                        StreamWriter sw = new StreamWriter("Mods/StardewUnattendedServer/ConnectionsCount.txt");
+                        StreamWriter sw = new StreamWriter("Mods/MultiplayerAssistant/ConnectionsCount.txt");
 
                         //Write a line of text
                         sw.WriteLine(connectionsCount);
@@ -909,7 +962,7 @@ namespace StardewUnattendedServer
                             else
                             {
                                 this.SendChatMessage(Helper.Translation.Get("sleep.tooEarly"));
-                                this.SendChatMessage(Helper.Translation.Get("sleep.after", new { sleepTime = this.Config.timeOfDayToSleep}));
+                                this.SendChatMessage(SafeTranslation("sleep.after", new { sleepTime = this.Config.timeOfDayToSleep }));
                             }
                         }
                         if (lastFragment == festivalKeyword)

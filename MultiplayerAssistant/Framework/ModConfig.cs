@@ -1,6 +1,6 @@
 ﻿using StardewModdingAPI;
 
-namespace StardewUnattendedServer.Framework
+namespace MultiplayerAssistant.Framework
 {
     class ModConfig
     {
