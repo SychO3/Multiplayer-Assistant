@@ -16,6 +16,7 @@ using StardewValley.Network;
 using StardewValley.Objects;
 using SObject = StardewValley.Object;
 using System.Runtime.CompilerServices;
+using MultiplayerAssistant;
 
 namespace StardewUnattendedServer
 {
@@ -41,6 +42,9 @@ namespace StardewUnattendedServer
         private readonly Dictionary<string, int> PreviousFriendships = new Dictionary<string, int>();  //stores friendship values
 
         public int connectionsCount = 1;
+
+        // 玩家mod检测相关变量
+        private readonly Dictionary<long, IMultiplayerPeer> connectedPeers = new Dictionary<long, IMultiplayerPeer>();  // 存储已连接的玩家信息
 
         private bool eventCommandUsed;
         private string sleepKeyword = "!";
@@ -128,6 +132,9 @@ namespace StardewUnattendedServer
             helper.Events.Input.ButtonPressed += this.OnButtonPressed;
             helper.Events.Display.Rendered += this.OnRendered;
             helper.Events.Specialized.UnvalidatedUpdateTicked += OnUnvalidatedUpdateTick; //used bc only thing that gets throug save window
+            // 注册多人游戏事件用于检测玩家mod
+            helper.Events.Multiplayer.PeerConnected += this.OnPeerConnected;
+            helper.Events.Multiplayer.PeerDisconnected += this.OnPeerDisconnected;
             sleepKeyword += this.Config.sleepKeyword;
             festivalKeyword += this.Config.festivalKeyword;
             eventKeyword += this.Config.eventKeyword;
@@ -1766,6 +1773,105 @@ namespace StardewUnattendedServer
                 Game1.timeOfDay = currentDate == spiritsEve ? 2400 : 2200;
                 Game1.shouldTimePass();
             });
+        }
+
+        /// <summary>玩家连接时触发，检测mod使用情况</summary>
+        /// <param name="sender">事件发送者</param>
+        /// <param name="e">事件数据</param>
+        private void OnPeerConnected(object? sender, PeerConnectedEventArgs e)
+        {
+            if (!this.Config.detectPlayerMods || !IsEnabled)
+                return;
+
+            try
+            {
+                var peer = e.Peer;
+                connectedPeers[peer.PlayerID] = peer;
+
+                // 记录玩家连接信息
+                this.Monitor.MultiplayerDebug($"玩家连接: ID={peer.PlayerID}, 是否为房主={peer.IsHost}, 是否使用SMAPI={peer.HasSmapi}", "PlayerDetection");
+
+                if (peer.HasSmapi)
+                {
+                    // 玩家使用了SMAPI和mod
+                    var modCount = peer.Mods?.Count() ?? 0;
+                    this.Monitor.MultiplayerDebug($"检测到使用mod的玩家: 玩家ID={peer.PlayerID}, mod数量={modCount}, 游戏版本={peer.GameVersion}, SMAPI版本={peer.ApiVersion}, 平台={peer.Platform}", "PlayerDetection");
+
+                    // 始终记录mod列表到日志
+                    if (modCount > 0 && peer.Mods != null)
+                    {
+                        this.Monitor.MultiplayerDebug($"玩家 {peer.PlayerID} 的mod列表:", "ModList");
+                        foreach (var mod in peer.Mods)
+                        {
+                            this.Monitor.MultiplayerDebug($"  - {mod.Name} v{mod.Version} (ID: {mod.ID})", "ModList");
+                        }
+                    }
+
+                    // 如果启用了踢出mod玩家选项
+                    if (this.Config.kickModdedPlayers)
+                    {
+                        this.Monitor.ServerBotInfo($"踢出使用mod的玩家: {peer.PlayerID}", "PlayerDetection");
+                        Game1.server?.kick(peer.PlayerID);
+                        this.SendChatMessage("已踢出使用mod的玩家");
+                        return;
+                    }
+
+                    // 发送聊天通知（如果启用）
+                    if (this.Config.notifyModdedPlayers)
+                    {
+                        this.SendChatMessage($"检测到使用mod的玩家加入，共安装了 {modCount} 个mod");
+                    }
+                }
+                else
+                {
+                    // 玩家没有使用SMAPI/mod
+                    this.Monitor.MultiplayerDebug($"检测到未使用mod的玩家: 玩家ID={peer.PlayerID}", "PlayerDetection");
+
+                    // 发送聊天通知（如果启用）
+                    if (this.Config.notifyModdedPlayers)
+                    {
+                        this.SendChatMessage("检测到未使用mod的玩家加入");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                this.Monitor.ServerBotException(ex, "处理玩家连接事件时发生错误", "PlayerDetection");
+            }
+        }
+
+        /// <summary>玩家断开连接时触发</summary>
+        /// <param name="sender">事件发送者</param>
+        /// <param name="e">事件数据</param>
+        private void OnPeerDisconnected(object? sender, PeerDisconnectedEventArgs e)
+        {
+            if (!this.Config.detectPlayerMods || !IsEnabled)
+                return;
+
+            try
+            {
+                var peer = e.Peer;
+                
+                // 从连接列表中移除
+                if (connectedPeers.ContainsKey(peer.PlayerID))
+                {
+                    connectedPeers.Remove(peer.PlayerID);
+                }
+
+                // 记录断开连接信息
+                this.Monitor.MultiplayerDebug($"玩家断开连接: ID={peer.PlayerID}, 是否使用SMAPI={peer.HasSmapi}", "PlayerDetection");
+
+                // 发送聊天通知（如果启用）
+                if (this.Config.notifyModdedPlayers)
+                {
+                    var playerType = peer.HasSmapi ? "使用mod的玩家" : "未使用mod的玩家";
+                    this.SendChatMessage($"{playerType}已离开游戏");
+                }
+            }
+            catch (Exception ex)
+            {
+                this.Monitor.ServerBotException(ex, "处理玩家断开连接事件时发生错误", "PlayerDetection");
+            }
         }
     }
 }

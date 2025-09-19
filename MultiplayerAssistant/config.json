@@ -33,5 +33,8 @@
     "flowerDanceTimeOut": 120,
     "luauTimeOut": 120,
     "danceOfJelliesTimeOut": 120,
-    "festivalOfIceTimeOut": 120
+    "festivalOfIceTimeOut": 120,
+    "detectPlayerMods": true,
+    "notifyModdedPlayers": true,
+    "kickModdedPlayers": false
   }

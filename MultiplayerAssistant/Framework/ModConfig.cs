@@ -45,5 +45,10 @@ namespace StardewUnattendedServer.Framework
         public int danceOfJelliesTimeOut { get; set; } = 120;
         public int festivalOfIceTimeOut { get; set; } = 120;
 
+        // 玩家mod检测相关配置
+        public bool detectPlayerMods { get; set; } = true;
+        public bool notifyModdedPlayers { get; set; } = true;
+        public bool kickModdedPlayers { get; set; } = false;
+
     }
 }

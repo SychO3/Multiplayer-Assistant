@@ -2,6 +2,17 @@
 
 Stardew Valley Multiplayer Assistant 是一个专为《星露谷物语》多人联机设计的 SMAPI Mod，作为房主(主机)的无人值守服务器机器人，自动管理游戏进程、节日活动和玩家互动。
 
+## 最新更新
+
+### v1.0.1 - 新增玩家mod检测功能
+- **🔍 玩家mod检测**: 自动检测加入游戏的玩家是否使用SMAPI和mod
+- **📊 详细信息记录**: 记录玩家mod数量、SMAPI版本、游戏版本、平台等详细信息  
+- **📋 mod列表记录**: 自动记录所有玩家安装的mod详细列表到日志
+- **⚡ 实时通知**: 在游戏聊天中实时通知玩家mod使用状态
+- **🛡️ 灵活管理**: 支持踢出使用mod的玩家（可配置，默认关闭）
+- **📁 调试日志**: 使用MonitorExtensions记录详细的玩家连接和断开信息
+- **⚙️ 配置选项**: 新增3个配置选项控制检测功能的各个方面
+
 ## 核心功能概述
 
 ### 🎮 服务器自动化管理
@@ -36,6 +47,7 @@ Stardew Valley Multiplayer Assistant 是一个专为《星露谷物语》多人�
 - **箱子锁定**: 防止其他玩家访问房主的私人箱子
 - **邀请码管理**: 自动复制邀请码到剪贴板并保存到文件
 - **玩家统计**: 实时显示在线玩家数量
+- **玩家mod检测**: 自动检测加入玩家是否使用mod，可配置踢出mod玩家
 
 ## 详细功能说明
 
@@ -77,6 +89,13 @@ Stardew Valley Multiplayer Assistant 是一个专为《星露谷物语》多人�
 - **配置热重载**: 支持运行时重新加载配置
 - **状态持久化**: 游戏状态的自动保存和恢复
 
+### 玩家mod检测和管理
+- **实时检测**: 玩家连接时自动检测是否使用SMAPI和mod
+- **详细信息记录**: 记录玩家的mod数量、SMAPI版本、游戏版本等信息
+- **mod列表记录**: 自动记录玩家安装的所有mod详细列表到日志
+- **灵活管理**: 支持踢出使用mod的玩家（可配置）
+- **聊天通知**: 在游戏中实时通知玩家mod使用状态
+
 ## 配置选项
 
 ### 基础设置
@@ -97,6 +116,11 @@ Stardew Valley Multiplayer Assistant 是一个专为《星露谷物语》多人�
 - `lockPlayerChests`: 是否锁定其他玩家的箱子
 - `clientsCanPause`: 是否允许客户端暂停游戏
 - `copyInviteCodeToClipboard`: 是否自动复制邀请码
+
+### 玩家mod检测设置
+- `detectPlayerMods`: 是否启用玩家mod检测功能（默认 true）
+- `notifyModdedPlayers`: 是否在聊天中通知mod玩家状态（默认 true）
+- `kickModdedPlayers`: 是否踢出使用mod的玩家（默认 false）
 
 ### 节日设置
 - `festivalsOn`: 是否启用节日功能
