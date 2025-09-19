@@ -10,10 +10,6 @@
     <!-- 固定 Mod 文件夹名 -->
     <ModFolderName>MultiplayerAssistant</ModFolderName>
     <ModZipPath>$(ProjectDir)..</ModZipPath>
-    <EnableGameDebugging>false</EnableGameDebugging>
-    <EnableModDeploy>false</EnableModDeploy>
-    <EnableModZip>false</EnableModZip>
-    <BundleExtraAssemblies>All</BundleExtraAssemblies>
   </PropertyGroup>
 
   <ItemGroup>
