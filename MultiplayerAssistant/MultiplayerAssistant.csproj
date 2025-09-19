@@ -4,7 +4,7 @@
     <TargetFramework>net6.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <EnableHarmony>true</EnableHarmony>
+    <EnableHarmony>false</EnableHarmony>
     <!-- 仅当外部传入时才使用手动路径；默认走自动探测 -->
     <GamePath Condition=" '$(GamePath)' != '' ">$(GamePath)</GamePath>
     <!-- 固定 Mod 文件夹名 -->
