@@ -82,7 +82,7 @@ namespace MultiplayerAssistant.HostAutomatorStages
 
             if (hostedFarmer != null)
             {
-                monitor.Log($"Hosting {hostedFarmer.slotName} on co-op", LogLevel.Debug);
+                monitor.Log($"Hosting {hostedFarmer.slotName} on co-op");
                 
                 // Mechanisms pulled from CoopMenu.HostFileSlot
                 Game1.multiplayerMode = 2;
@@ -91,7 +91,7 @@ namespace MultiplayerAssistant.HostAutomatorStages
             }
             else
             {
-                monitor.Log($"Failed to find farm slot. Creating new farm \"{config.FarmName}\" and hosting on co-op", LogLevel.Debug);
+                monitor.Log($"Failed to find farm slot. Creating new farm \"{config.FarmName}\" and hosting on co-op");
                 // Mechanism pulled from CoopMenu.HostNewFarmSlot; CharacterCustomization class; and AdvancedGameOptions class
                 Game1.resetPlayer();
 
@@ -173,11 +173,11 @@ namespace MultiplayerAssistant.HostAutomatorStages
                 if (config.PetSpecies == "cat")
                 {
                     // 记录选择但不直接设置 catPerson
-                    monitor.Debug("玩家选择了猫作为宠物", LogLevel.Debug);
+                    monitor.Debug("玩家选择了猫作为宠物");
                 }
                 else
                 {
-                    monitor.Debug("玩家选择了狗作为宠物", LogLevel.Debug);
+                    monitor.Debug("玩家选择了狗作为宠物");
                 }
 
                 // Pet breed
@@ -301,7 +301,7 @@ namespace MultiplayerAssistant.HostAutomatorStages
             // update the value dynamically, and load new cellars whenever a new player
             // joins? Unclear...
             //Game1.netWorldState.Value.HighestPlayerLimit.Value = int.MaxValue;
-            Game1.netWorldState.Value.CurrentPlayerLimit.Value = int.MaxValue;
+            Game1.netWorldState.Value.CurrentPlayerLimit = int.MaxValue; // 在1.6中CurrentPlayerLimit已经是int类型
             // NOTE: It will be very difficult, if not impossible, to remove the
             // cabin-per-player requirement. This requirement is very much built in
             // to much of the multiplayer networking connect / disconnect logic, and,
@@ -335,11 +335,11 @@ namespace MultiplayerAssistant.HostAutomatorStages
             {
                 // 尝试使用经验值来设置等级
                 Game1.player.experiencePoints[3] = 15000; // Mining skill
-                monitor.Debug("设置挖矿技能等级为 10", LogLevel.Debug);
+                monitor.Debug("设置挖矿技能等级为 10");
             }
             catch (Exception ex)
             {
-                monitor.Debug($"无法设置挖矿技能等级: {ex.Message}", LogLevel.Debug);
+                monitor.Debug($"无法设置挖矿技能等级: {ex.Message}");
             }
 
             automatedHost = new AutomatedHost(helper, monitor, config, chatBox);

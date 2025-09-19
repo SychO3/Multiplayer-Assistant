@@ -55,8 +55,7 @@ namespace MultiplayerAssistant
             if (Context.IsWorldReady)
             {
                 Game1.player.health = Game1.player.maxHealth;
-                // 1.6 中 maxStamina 变为 NetInt，需要取 Value 再转换为 float
-                Game1.player.stamina = (float)Game1.player.maxStamina.Value;
+                Game1.player.stamina = Game1.player.maxStamina.Value; // 使用 .Value 获取 NetInt 的实际值
             }
         }
 

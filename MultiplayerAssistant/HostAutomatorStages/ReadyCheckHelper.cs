@@ -158,7 +158,8 @@ namespace MultiplayerAssistant.HostAutomatorStages
             catch (Exception ex)
             {
                 // 记录错误但不中断执行
-                Game1.log.Error($"Failed to set ready status: {ex.Message}");
+                // 在1.6中，Game1.log 不再是公开的，使用控制台输出作为替代
+                Console.WriteLine($"[MultiplayerAssistant] Failed to set ready status: {ex.Message}");
             }
         }
 
@@ -198,7 +199,8 @@ namespace MultiplayerAssistant.HostAutomatorStages
             }
             catch (Exception ex)
             {
-                Game1.log.Error($"Failed to get number ready: {ex.Message}");
+                // 在1.6中，Game1.log 不再是公开的，使用控制台输出作为替代
+                Console.WriteLine($"[MultiplayerAssistant] Failed to get number ready: {ex.Message}");
             }
             return 0;
         }

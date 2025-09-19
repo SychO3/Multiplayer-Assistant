@@ -263,7 +263,7 @@ namespace MultiplayerAssistant.Crops
                                     DayOfCurrentPhase = crop.dayOfCurrentPhase.Value,
                                     FullyGrown = crop.fullyGrown.Value,
                                     PhaseDays = crop.phaseDays.ToList(),
-                                    OriginalRegrowAfterHarvest = crop.RegrowAfterHarvest.Value
+                                    OriginalRegrowAfterHarvest = GetCropRegrowDays(crop)
                                 };
 
                                 var cropComparisonData = new CropComparisonData
@@ -272,7 +272,7 @@ namespace MultiplayerAssistant.Crops
                                     RowInSpriteSheet = crop.rowInSpriteSheet.Value,
                                     Dead = crop.dead.Value,
                                     ForageCrop = crop.forageCrop.Value,
-                                    WhichForageCrop = crop.netSeedIndex.Value
+                                    WhichForageCrop = int.Parse(crop.indexOfHarvest.Value)
                                 };
 
                                 // Determine if this crop was planted today or was pre-existing, based on whether
@@ -286,7 +286,7 @@ namespace MultiplayerAssistant.Crops
                                         MarkedForDeath = false,
                                         OriginalSeasonsToGrowIn = GetCropSeasons(crop),
                                         HasExistedInIncompatibleSeason = false,
-                                        OriginalRegrowAfterHarvest = crop.RegrowAfterHarvest.Value,
+                                        OriginalRegrowAfterHarvest = GetCropRegrowDays(crop),
                                         HarvestableLastNight = false
                                     };
                                     cropDictionary[cropLocation] = cd;
@@ -381,7 +381,7 @@ namespace MultiplayerAssistant.Crops
                                         DayOfCurrentPhase = crop.dayOfCurrentPhase.Value,
                                         FullyGrown = crop.fullyGrown.Value,
                                         PhaseDays = crop.phaseDays.ToList(),
-                                        OriginalRegrowAfterHarvest = crop.RegrowAfterHarvest.Value
+                                        OriginalRegrowAfterHarvest = GetCropRegrowDays(crop)
                                     };
 
                                     cropComparisonData = new CropComparisonData
@@ -390,7 +390,7 @@ namespace MultiplayerAssistant.Crops
                                         RowInSpriteSheet = crop.rowInSpriteSheet.Value,
                                         Dead = crop.dead.Value,
                                         ForageCrop = crop.forageCrop.Value,
-                                        WhichForageCrop = crop.netSeedIndex.Value
+                                        WhichForageCrop = int.Parse(crop.indexOfHarvest.Value)
                                     };
 
                                     beginningOfDayCrops[cropLocation] = cropComparisonData;
@@ -426,7 +426,9 @@ namespace MultiplayerAssistant.Crops
                                 // farmer only gets one more harvest out of it.
                                 if (cropData.HasExistedInIncompatibleSeason)
                                 {
-                                    crop.RegrowAfterHarvest.Value = -1;
+                                    // 在1.6中，我们不能直接修改作物的RegrowDays
+                                    // 需要通过其他方式处理
+                                    monitor.Log($"作物 {crop.indexOfHarvest.Value} 曾存在于不兼容的季节，但无法直接修改其RegrowDays", LogLevel.Debug);
                                 }
 
                                 // And if the crop has been marked for death because it was planted too close to
@@ -456,7 +458,7 @@ namespace MultiplayerAssistant.Crops
                                     RowInSpriteSheet = crop.rowInSpriteSheet.Value,
                                     Dead = crop.dead.Value,
                                     ForageCrop = crop.forageCrop.Value,
-                                    WhichForageCrop = crop.netSeedIndex.Value
+                                    WhichForageCrop = int.Parse(crop.indexOfHarvest.Value)
                                 };
 
                                 beginningOfDayCrops[cropLocation] = cropComparisonData;
@@ -467,12 +469,31 @@ namespace MultiplayerAssistant.Crops
             }
         }
 
+        // 获取作物的再生长天数
+        private int GetCropRegrowDays(Crop crop)
+        {
+            try 
+            {
+                // 在1.6中，作物数据存储在Game1.cropData中
+                if (Game1.cropData.TryGetValue(crop.indexOfHarvest.Value.ToString(), out var cropData))
+                {
+                    return cropData.RegrowDays;
+                }
+            }
+            catch (Exception ex)
+            {
+                // 如果出错，返回默认值
+                monitor.Log($"获取作物再生长天数时出错: {ex.Message}", LogLevel.Debug);
+            }
+            return -1;
+        }
+
         // 获取作物的季节信息（从 Data/Crops 中）
         private List<string> GetCropSeasons(Crop crop)
         {
             try
             {
-                if (Game1.cropData.TryGetValue(crop.netSeedIndex.Value, out var cropData))
+                if (Game1.cropData.TryGetValue(crop.indexOfHarvest.Value.ToString(), out var cropData))
                 {
                     // 将 Season 枚举转换为字符串列表
                     var seasons = cropData.Seasons?.Select(s => s.ToString().ToLower()).ToList();
@@ -494,7 +515,7 @@ namespace MultiplayerAssistant.Crops
                 // 在 1.6 中，作物的季节信息存储在 Data/Crops 中
                 // 我们无法直接修改 Crop 对象的季节信息
                 // 需要通过其他方式确保作物不会因季节变化而死亡
-                monitor.Log($"处理作物 {crop.netSeedIndex.Value} 的季节生存性", LogLevel.Debug);
+                monitor.Log($"处理作物 {crop.indexOfHarvest.Value} 的季节生存性", LogLevel.Debug);
             }
             catch (Exception ex)
             {

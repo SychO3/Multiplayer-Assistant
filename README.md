@@ -3,6 +3,21 @@ Multiplayer Assistant 是一个用于《星露谷物语》的 SMAPI Mod，为多
 
 ## 最新更新
 
+### v1.1.0 - 兼容Stardew Valley 1.6更新 (2024)
+- **修复API兼容性问题**: 
+  - 修复 `Game1.player.maxStamina` NetInt 类型转换错误
+  - 修复 `buildStructure` 方法调用参数错误
+  - 修复 `Game1.log` 访问权限问题，改用 Console.WriteLine
+- **更新作物系统API调用**:
+  - `crop.RegrowAfterHarvest` 改为从 `cropData.RegrowDays` 获取
+  - `crop.netSeedIndex` 改为 `crop.indexOfHarvest` (返回string类型)
+  - 添加 GetCropRegrowDays 辅助方法
+  - 修复 WhichForageCrop 赋值时的类型转换 (使用 int.Parse)
+- **修复日志记录方法调用**:
+  - 移除 monitor.Debug 的 LogLevel 参数
+  - 修复 CurrentPlayerLimit 属性访问
+- **注意**: 在1.6中无法直接修改作物的 RegrowDays 属性
+
 ### v1.0.0 - MonitorExtensions 优化
 - **适配最新SMAPI API**: 完全兼容最新版本的SMAPI日志记录API
 - **新增Alert日志级别**: 支持Alert级别日志记录，用于需要玩家关注的重要信息

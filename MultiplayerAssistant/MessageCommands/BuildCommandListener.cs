@@ -76,7 +76,7 @@ namespace MultiplayerAssistant.MessageCommands
                         var farm = Game1.getFarm();
                         // 使用新的建筑创建方法
                         Building building = Building.CreateInstanceFromId(buildingType, point);
-                        if (building != null && farm.buildStructure(building))
+                        if (building != null && farm.buildStructure(building, new Vector2(point.X, point.Y), Game1.player))
                         {
                             chatBox.textBoxEnter(farmer.Name + " just built a " + cabinBlueprintName);
                         }
