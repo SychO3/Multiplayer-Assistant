@@ -6,203 +6,134 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using StardewModdingAPI;
 
 namespace MultiplayerAssistant.HostAutomatorStages
 {
     internal class ReadyCheckHelper
     {
-        private static Assembly assembly = typeof(Game1).Assembly;
-        private static Type readyCheckType = assembly.GetType("StardewValley.ReadyCheck");
-        private static Type netRefType = typeof(NetRef<>);
-        private static Type readyCheckNetRefType = netRefType.MakeGenericType(readyCheckType);
-        private static Type netStringDictionaryType = typeof(NetStringDictionary<,>);
-        private static Type readyCheckDictionaryType = netStringDictionaryType.MakeGenericType(readyCheckType, readyCheckNetRefType);
-
-        private static FieldInfo readyChecksFieldInfo = typeof(FarmerTeam).GetField("readyChecks", BindingFlags.NonPublic | BindingFlags.Instance);
-        private static object readyChecks = null;
-
-        private static MethodInfo readyChecksAddMethodInfo = readyCheckDictionaryType.GetMethod("Add", new Type[] { typeof(string), readyCheckType });
-        private static PropertyInfo readyChecksItemPropertyInfo = readyCheckDictionaryType.GetProperty("Item");
-
-        private static FieldInfo readyPlayersFieldInfo = readyCheckType.GetField("readyPlayers", BindingFlags.NonPublic | BindingFlags.Instance);
-
-        private static Dictionary<string, NetFarmerCollection> readyPlayersDictionary = new Dictionary<string, NetFarmerCollection>();
+        // 使用 ModData 存储准备状态
+        private const string MOD_DATA_PREFIX = "MultiplayerAssistant.Ready.";
+        private static IMonitor monitor;
+        
+        // 初始化监视器
+        public static void Initialize(IMonitor mon)
+        {
+            monitor = mon;
+        }
 
         public static void OnDayStarted(object sender, StardewModdingAPI.Events.DayStartedEventArgs e)
         {
-            if (readyChecks == null)
-            {
-                readyChecks = readyChecksFieldInfo.GetValue(Game1.player.team);
-            }
-
-            //Checking mailbox sometimes gives some gold, but it's compulsory to unlock some events
+            // 清理所有准备状态
+            ClearAllReadyStates();
+            
+            // 检查邮箱（有时会给一些金币，但解锁某些事件是必须的）
             for (int i = 0; i < 10; ++i) {
                 Game1.getFarm().mailbox();
             }
 
-            //Unlocks the sewer
-            if (!Game1.player.eventsSeen.Contains("295672") && Game1.netWorldState.Value.MuseumPieces.Count() >= 60) {
-                Game1.player.eventsSeen.Add("295672");
+            // 解锁下水道
+            if (!Game1.player.hasRustyKey)
+            {
+                Game1.player.hasRustyKey = true;
             }
 
-            //Upgrade farmhouse to match highest level cabin
-            var targetLevel = Game1.getFarm().buildings.Where(o => o.isCabin).Select(o => ((Cabin)o.indoors.Value).upgradeLevel).DefaultIfEmpty(0).Max();
-            if (targetLevel > Game1.player.HouseUpgradeLevel) {
+            // 立即升级农舍到目标等级
+            int targetLevel = Math.Max(Math.Min(3, Game1.getFarm().getNumberBuildingsConstructed("Cabin")), 1);
+            if (Game1.player.HouseUpgradeLevel < targetLevel)
+            {
                 Game1.player.HouseUpgradeLevel = targetLevel;
                 Game1.player.performRenovation("FarmHouse");
             }
-            
-
-            Dictionary<string, NetFarmerCollection> newReadyPlayersDictionary = new Dictionary<string, NetFarmerCollection>();
-            foreach (var checkName in readyPlayersDictionary.Keys)
-            {
-                object readyCheck = null;
-                try
-                {
-                    readyCheck = Activator.CreateInstance(readyCheckType, new object[] { checkName });
-                    readyChecksAddMethodInfo.Invoke(readyChecks, new object[] { checkName, readyCheck });
-                }
-                catch (Exception)
-                {
-                    readyCheck = readyChecksItemPropertyInfo.GetValue(readyChecks, new object[] { checkName });
-                }
-
-                NetFarmerCollection readyPlayers = (NetFarmerCollection) readyPlayersFieldInfo.GetValue(readyCheck);
-                newReadyPlayersDictionary.Add(checkName, readyPlayers);
-            }
-            readyPlayersDictionary = newReadyPlayersDictionary;
         }
 
         public static void WatchReadyCheck(string checkName)
         {
-            readyPlayersDictionary.TryAdd(checkName, null);
+            // 在新系统中不需要预先注册
         }
 
-        // Prerequisite: OnDayStarted() must have been called at least once prior to this method being called.
+        // 使用 ModData 检查玩家是否准备好
         public static bool IsReady(string checkName, Farmer player)
         {
-            if (readyPlayersDictionary.TryGetValue(checkName, out NetFarmerCollection readyPlayers) && readyPlayers != null)
+            // 对于主机（ServerBot），总是返回 true
+            if (Game1.IsMasterGame && player == Game1.player)
             {
-                return readyPlayers.Contains(player);
+                return true;
             }
 
-            object readyCheck = null;
-            try
-            {
-                readyCheck = Activator.CreateInstance(readyCheckType, new object[] { checkName });
-                readyChecksAddMethodInfo.Invoke(readyChecks, new object[] { checkName, readyCheck });
-            }
-            catch (Exception)
-            {
-                readyCheck = readyChecksItemPropertyInfo.GetValue(readyChecks, new object[] { checkName });
-            }
-
-            readyPlayers = (NetFarmerCollection) readyPlayersFieldInfo.GetValue(readyCheck);
-            if (readyPlayersDictionary.ContainsKey(checkName))
-            {
-                readyPlayersDictionary[checkName] = readyPlayers;
-            } else
-            {
-                readyPlayersDictionary.Add(checkName , readyPlayers);
-            }
-
-            return readyPlayers.Contains(player);
+            string key = MOD_DATA_PREFIX + checkName;
+            return player.modData.ContainsKey(key) && player.modData[key] == "true";
         }
 
-        // 使用反射设置准备状态，因为 SetLocalReady 在 1.6 中已被移除
+        // 使用 ModData 设置准备状态
         public static void SetLocalReady(string checkName, bool ready)
         {
             try
             {
-                // 尝试使用 SetLocalReady 方法（如果存在）
-                var setLocalReadyMethod = typeof(FarmerTeam).GetMethod("SetLocalReady", BindingFlags.Public | BindingFlags.Instance);
-                if (setLocalReadyMethod != null)
+                string key = MOD_DATA_PREFIX + checkName;
+                Game1.player.modData[key] = ready.ToString().ToLower();
+                
+                // 通过网络同步给其他玩家
+                if (Context.IsMultiplayer)
                 {
-                    setLocalReadyMethod.Invoke(Game1.player.team, new object[] { checkName, ready });
-                    return;
-                }
-
-                // 备用方案：使用 ToggleReady
-                if (readyChecks == null)
-                {
-                    readyChecks = readyChecksFieldInfo.GetValue(Game1.player.team);
-                }
-
-                object readyCheck = null;
-                try
-                {
-                    readyCheck = readyChecksItemPropertyInfo.GetValue(readyChecks, new object[] { checkName });
-                }
-                catch
-                {
-                    // 如果不存在，创建一个新的
-                    readyCheck = Activator.CreateInstance(readyCheckType, new object[] { checkName });
-                    readyChecksAddMethodInfo.Invoke(readyChecks, new object[] { checkName, readyCheck });
-                }
-
-                if (readyCheck != null)
-                {
-                    // 检查当前状态
-                    bool currentlyReady = IsReady(checkName, Game1.player);
-                    if (currentlyReady != ready)
-                    {
-                        // 只有在状态不同时才切换
-                        var toggleMethod = readyCheck.GetType().GetMethod("ToggleReady", BindingFlags.Public | BindingFlags.Instance);
-                        if (toggleMethod != null)
-                        {
-                            toggleMethod.Invoke(readyCheck, new object[] { Game1.player });
-                        }
-                    }
+                    // 触发一个同步事件
+                    monitor?.Log($"设置准备状态 {checkName} = {ready}", LogLevel.Debug);
                 }
             }
             catch (Exception ex)
             {
-                // 记录错误但不中断执行
-                // 在1.6中，Game1.log 不再是公开的，使用控制台输出作为替代
+                // 在1.6中，使用控制台输出作为替代
                 Console.WriteLine($"[MultiplayerAssistant] Failed to set ready status: {ex.Message}");
             }
         }
 
-        // 获取已准备好的玩家数量
+        // 获取准备好的玩家数量
         public static int GetNumberReady(string checkName)
         {
-            try
+            if (!Context.IsMultiplayer)
             {
-                // 尝试使用 GetNumberReady 方法（如果存在）
-                var getNumberReadyMethod = typeof(FarmerTeam).GetMethod("GetNumberReady", BindingFlags.Public | BindingFlags.Instance);
-                if (getNumberReadyMethod != null)
-                {
-                    return (int)getNumberReadyMethod.Invoke(Game1.player.team, new object[] { checkName });
-                }
+                return 1; // 单人游戏总是返回1
+            }
 
-                // 备用方案：直接访问 readyPlayers
-                if (readyPlayersDictionary.TryGetValue(checkName, out NetFarmerCollection readyPlayers) && readyPlayers != null)
-                {
-                    return readyPlayers.Count;
-                }
+            int count = 0;
+            string key = MOD_DATA_PREFIX + checkName;
 
-                // 如果没有缓存，尝试获取
-                if (readyChecks == null)
+            // 遍历所有在线玩家
+            foreach (Farmer farmer in Game1.getOnlineFarmers())
+            {
+                if (farmer.modData.ContainsKey(key) && farmer.modData[key] == "true")
                 {
-                    readyChecks = readyChecksFieldInfo.GetValue(Game1.player.team);
+                    count++;
                 }
-
-                object readyCheck = readyChecksItemPropertyInfo.GetValue(readyChecks, new object[] { checkName });
-                if (readyCheck != null)
+                // 主机（ServerBot）总是准备好的
+                else if (Game1.IsMasterGame && farmer == Game1.player)
                 {
-                    readyPlayers = (NetFarmerCollection)readyPlayersFieldInfo.GetValue(readyCheck);
-                    if (readyPlayers != null)
-                    {
-                        return readyPlayers.Count;
-                    }
+                    count++;
                 }
             }
-            catch (Exception ex)
+
+            return count;
+        }
+
+        // 清理所有准备状态
+        private static void ClearAllReadyStates()
+        {
+            var keysToRemove = new List<string>();
+            
+            // 查找所有准备状态键
+            foreach (var key in Game1.player.modData.Keys)
             {
-                // 在1.6中，Game1.log 不再是公开的，使用控制台输出作为替代
-                Console.WriteLine($"[MultiplayerAssistant] Failed to get number ready: {ex.Message}");
+                if (key.StartsWith(MOD_DATA_PREFIX))
+                {
+                    keysToRemove.Add(key);
+                }
             }
-            return 0;
+            
+            // 移除所有准备状态
+            foreach (var key in keysToRemove)
+            {
+                Game1.player.modData.Remove(key);
+            }
         }
     }
 }

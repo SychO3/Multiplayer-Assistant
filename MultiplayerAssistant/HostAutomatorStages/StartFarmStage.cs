@@ -31,6 +31,8 @@ namespace MultiplayerAssistant.HostAutomatorStages
         {
             this.monitor = monitor;
             this.config = config;
+            // 初始化 ReadyCheckHelper
+            ReadyCheckHelper.Initialize(monitor);
             helper.Events.GameLoop.SaveLoaded += onSaveLoaded;
             if (config.EnableCropSaver) {
                 cropSaver = new CropSaver(helper, monitor, config);
@@ -58,9 +60,38 @@ namespace MultiplayerAssistant.HostAutomatorStages
                 return;
             }
             
-            MethodInfo info = typeof(LoadGameMenu).GetMethod("FindSaveGames", BindingFlags.Static | BindingFlags.NonPublic);
-            object result = info.Invoke(obj: null, parameters: Array.Empty<object>());
-            List<Farmer> farmers = result as List<Farmer>;
+            // 在1.6中，尝试使用不同的方法获取存档信息
+            List<Farmer> farmers = null;
+            try 
+            {
+                // 首先尝试不带参数的调用（兼容旧版本）
+                MethodInfo info = typeof(LoadGameMenu).GetMethod("FindSaveGames", BindingFlags.Static | BindingFlags.NonPublic);
+                if (info != null)
+                {
+                    // 检查方法参数
+                    var parameters = info.GetParameters();
+                    if (parameters.Length == 0)
+                    {
+                        // 无参数版本
+                        object result = info.Invoke(null, Array.Empty<object>());
+                        farmers = result as List<Farmer>;
+                    }
+                    else if (parameters.Length == 1)
+                    {
+                        // 可能需要一个参数（如路径）
+                        object result = info.Invoke(null, new object[] { null });
+                        farmers = result as List<Farmer>;
+                    }
+                    else
+                    {
+                        monitor.Debug($"FindSaveGames 方法需要 {parameters.Length} 个参数，无法自动适配");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                monitor.Debug($"通过反射调用 FindSaveGames 失败: {ex.Message}");
+            }
             if (farmers == null)
             {
                 return;

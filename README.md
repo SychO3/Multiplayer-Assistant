@@ -16,6 +16,14 @@ Multiplayer Assistant 是一个用于《星露谷物语》的 SMAPI Mod，为多
 - **修复日志记录方法调用**:
   - 移除 monitor.Debug 的 LogLevel 参数
   - 修复 CurrentPlayerLimit 属性访问
+- **修复反射调用兼容性**:
+  - LoadGameMenu.FindSaveGames 方法签名已更改
+  - 添加参数数量检测和自适应调用逻辑
+- **使用 ModData 系统替代 ReadyCheck**:
+  - 原有的 ReadyCheck 类在 1.6 中已被移除
+  - 使用 Farmer.modData 存储玩家准备状态
+  - 主机（ServerBot）始终处于准备状态
+  - 保持原有接口不变，确保兼容性
 - **注意**: 在1.6中无法直接修改作物的 RegrowDays 属性
 
 ### v1.0.0 - MonitorExtensions 优化
