@@ -8,6 +8,7 @@ using StardewValley.Locations;
 using StardewValley.Objects;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace MultiplayerAssistant.MessageCommands
 {
@@ -16,11 +17,13 @@ namespace MultiplayerAssistant.MessageCommands
     /// </summary>
     internal class DemolishCommandListener
     {
+        private readonly IModHelper helper;
         private EventDrivenChatBox chatBox;
         private readonly IMonitor monitor;
 
-        public DemolishCommandListener(EventDrivenChatBox chatBox, IMonitor monitor)
+        public DemolishCommandListener(IModHelper helper, EventDrivenChatBox chatBox, IMonitor monitor)
         {
+            this.helper = helper;
             this.chatBox = chatBox;
             this.monitor = monitor;
             // 中文说明：初始化拆除命令监听器
@@ -148,6 +151,10 @@ namespace MultiplayerAssistant.MessageCommands
                 return;
             }
             // 中文说明：私聊消息类型为 3
+            if (!Context.IsMainPlayer)
+            {
+                return;
+            }
             if (e.ChatKind == 3 && tokens[0] == "demolish")
             {
                 monitor.Debug($"收到拆除命令：{e.Message}", nameof(DemolishCommandListener));
@@ -156,12 +163,21 @@ namespace MultiplayerAssistant.MessageCommands
                 {
                     if (farmer.UniqueMultiplayerID == e.SourceFarmerId)
                     {
+                        // 帮助与状态
+                        if (tokens.Length == 2 && (tokens[1] == "help" || tokens[1] == "?" || tokens[1] == "h"))
+                        {
+                            chatBox.textBoxEnter("/message " + farmer.Name + " Usage: demolish [help]");
+                            chatBox.textBoxEnter("/message " + farmer.Name + " 说明: 面向目标建筑一格并站在其旁边，然后发送 demolish。");
+                            chatBox.textBoxEnter("/message " + farmer.Name + " 注意: 拆除小屋需要二次确认并在30秒内回复 yes/no。");
+                            return;
+                        }
+
                         if (tokens.Length != 1)
                         {
                             // 中文说明：命令格式错误
                             monitor.Warn($"无效的拆除命令格式，玩家：{farmer.Name}", nameof(DemolishCommandListener));
                             chatBox.textBoxEnter("/message " + farmer.Name + " Error: Invalid command usage.");
-                            chatBox.textBoxEnter("/message " + farmer.Name + " Usage: demolish");
+                            chatBox.textBoxEnter("/message " + farmer.Name + " Usage: demolish [help]");
                             return;
                         }
                         var location = farmer.currentLocation;
@@ -228,7 +244,21 @@ namespace MultiplayerAssistant.MessageCommands
                                         responseActions["yes"] = genDestroyCabinAction(farmer.Name, building);
                                         responseActions["no"] = genCancelDestroyCabinAction(farmer.Name);
                                         chatBox.RegisterFarmerResponseActionGroup(farmer.UniqueMultiplayerID, responseActions);
-                                        chatBox.textBoxEnter("/message " + farmer.Name + " This cabin may belong to a player. Are you sure you want to remove it? Message me \"yes\" or \"no\".");
+                                        var ownerId = (building.indoors.Value as Cabin).OwnerId;
+                                        string ownerName = null;
+                                        if (ownerId != 0)
+                                        {
+                                            var owner = Game1.getAllFarmers().FirstOrDefault(p => p.UniqueMultiplayerID == ownerId);
+                                            ownerName = owner?.Name;
+                                        }
+                                        var ownerInfo = ownerName != null ? $" (owner: {ownerName})" : string.Empty;
+                                        chatBox.textBoxEnter("/message " + farmer.Name + " This cabin may belong to a player" + ownerInfo + ". Are you sure you want to remove it? Message me \"yes\" or \"no\".");
+                                        // 中文说明：通过集中服务在 30 秒后自动提示超时并清理回应
+                                        Services.ServiceHub.ConfirmationTimeout?.AddTimeoutSeconds(30, () =>
+                                        {
+                                            chatBox.textBoxEnter("/message " + farmer.Name + " Demolish cabin confirmation timed out.");
+                                            chatBox.RemoveResponsesForFarmer(farmer.UniqueMultiplayerID);
+                                        });
                                         return;
                                     }
 

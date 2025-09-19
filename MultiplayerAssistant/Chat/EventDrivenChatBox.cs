@@ -105,5 +105,15 @@ namespace MultiplayerAssistant.Chat
 
             this.monitor.Debug($"注册回应动作组：farmer={farmerId}, keys=[{string.Join(",", responseActions.Keys)}]", nameof(EventDrivenChatBox));
         }
+
+        public void RemoveResponsesForFarmer(long farmerId)
+        {
+            if (farmerResponseActions.TryGetValue(farmerId, out var responseActionsForFarmer))
+            {
+                responseActionsForFarmer.Clear();
+                farmerResponseActions.Remove(farmerId);
+                this.monitor.Debug($"清理回应动作组：farmer={farmerId}", nameof(EventDrivenChatBox));
+            }
+        }
     }
 }

@@ -119,6 +119,11 @@ namespace MultiplayerAssistant.MessageCommands
             {
                 return;
             }
+            // 中文说明：仅主机可用
+            if (!Context.IsMainPlayer)
+            {
+                return;
+            }
             if (e.ChatKind == 3 && tokens[0] == "build")
             {
                 monitor.Debug($"收到建造命令：{e.Message}", nameof(BuildCommandListener));
@@ -127,12 +132,26 @@ namespace MultiplayerAssistant.MessageCommands
                 {
                     if (farmer.UniqueMultiplayerID == e.SourceFarmerId)
                     {
+                        // 帮助与状态
+                        if (tokens.Length == 2 && (tokens[1] == "help" || tokens[1] == "?" || tokens[1] == "h"))
+                        {
+                            chatBox.textBoxEnter("/message " + farmer.Name + " Usage: build [building_name|help|list]");
+                            chatBox.textBoxEnter("/message " + farmer.Name + " list  : 显示可用建筑键名");
+                            pmValidBuildingNames(farmer);
+                            return;
+                        }
+                        if (tokens.Length == 2 && tokens[1] == "list")
+                        {
+                            pmValidBuildingNames(farmer);
+                            return;
+                        }
+
                         if (tokens.Length != 2)
                         {
                             // 中文说明：命令格式错误
                             monitor.Warn($"无效的建造命令格式，玩家：{farmer.Name}", nameof(BuildCommandListener));
                             chatBox.textBoxEnter("/message " + farmer.Name + " Error: Invalid command usage.");
-                            chatBox.textBoxEnter("/message " + farmer.Name + " Usage: build [building_name]");
+                            chatBox.textBoxEnter("/message " + farmer.Name + " Usage: build [building_name|help|list]");
                             pmValidBuildingNames(farmer);
                             return;
                         }

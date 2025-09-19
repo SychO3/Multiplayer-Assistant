@@ -107,6 +107,15 @@ namespace MultiplayerAssistant.HostAutomatorStages
                             db.selectedResponse = config.AcceptPet ? yesResponseIdx : noResponseIdx;
                             monitor.Info($"自动选择：{(config.AcceptPet ? "是" : "否")}（宠物选择）", nameof(ProcessDialogueBehaviorLink));
                         }
+                        else
+                        {
+                            // 中文说明：稳健回退——选择第一个选项，并输出调试信息
+                            if (responses != null && responses.Count > 0)
+                            {
+                                db.selectedResponse = 0;
+                                monitor.Debug($"未识别的对话选项，回退选择第一个：{responses[0].responseText}", nameof(ProcessDialogueBehaviorLink));
+                            }
+                        }
 
                         db.receiveLeftClick(0, 0);
                         state.SkipDialogue();

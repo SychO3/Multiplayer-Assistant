@@ -40,6 +40,37 @@ namespace MultiplayerAssistant.HostAutomatorStages
                 readyChecks = readyChecksFieldInfo.GetValue(Game1.player.team);
             }
 
+            // 新的一天开始时，清理上一晚遗留的睡觉就绪与公告状态，避免早晨误判为仍在睡觉导致循环弹窗
+            try
+            {
+                // 1) 清空 announcedSleepingFarmers
+                Game1.player?.team?.announcedSleepingFarmers?.Clear();
+
+                // 2) 清空 ReadyCheck("sleep") 的 readyPlayers 集合
+                object sleepReadyCheck = null;
+                try
+                {
+                    sleepReadyCheck = Activator.CreateInstance(readyCheckType, new object[] { "sleep" });
+                    readyChecksAddMethodInfo?.Invoke(readyChecks, new object[] { "sleep", sleepReadyCheck });
+                }
+                catch (Exception)
+                {
+                    sleepReadyCheck = readyChecksItemPropertyInfo.GetValue(readyChecks, new object[] { "sleep" });
+                }
+                var readyPlayers = (NetFarmerCollection)(readyPlayersFieldInfo?.GetValue(sleepReadyCheck));
+                readyPlayers?.Clear();
+
+                // 同步我们维护的缓存字典
+                if (readyPlayersDictionary.ContainsKey("sleep"))
+                {
+                    readyPlayersDictionary["sleep"] = readyPlayers ?? new NetFarmerCollection();
+                }
+            }
+            catch
+            {
+                // 忽略清理异常，避免影响游戏流程
+            }
+
             //Checking mailbox sometimes gives some gold, but it's compulsory to unlock some events
             for (int i = 0; i < 10; ++i) {
                 Game1.getFarm().mailbox();

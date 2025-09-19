@@ -119,15 +119,16 @@ namespace MultiplayerAssistant.HostAutomatorStages
         }
         public void Sleep()
         {
-            betweenTransitionSleepWaitTicks = (int)(60 * 0.2);
+            // 增加等待时间，避免在接受/创建 ReadyCheckDialog 后过快再次尝试创建导致循环弹窗
+            betweenTransitionSleepWaitTicks = 120; // 约2秒
         }
         public void WarpToSleep()
         {
-            betweenTransitionSleepWaitTicks = 60;
+            betweenTransitionSleepWaitTicks = 120;
         }
         public void CancelSleep()
         {
-            betweenTransitionSleepWaitTicks = (int)(60 * 0.2);
+            betweenTransitionSleepWaitTicks = 120;
         }
         public void ClearBetweenTransitionSleepWaitTicks()
         {

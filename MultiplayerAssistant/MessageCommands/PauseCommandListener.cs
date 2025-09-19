@@ -42,6 +42,10 @@ namespace MultiplayerAssistant.MessageCommands
             }
             
             // 中文说明：私聊消息类型为 3，只处理私聊的 pause 命令
+            if (!Context.IsMainPlayer)
+            {
+                return;
+            }
             if (e.ChatKind == 3 && tokens[0] == "pause")
             {
                 // 中文说明：查找发送命令的玩家
@@ -50,6 +54,14 @@ namespace MultiplayerAssistant.MessageCommands
                     .FirstOrDefault()?.Name ?? "未知玩家";
                 
                 monitor.Debug($"收到暂停命令：来自 {sourceFarmer}", nameof(PauseCommandListener));
+
+                // 帮助
+                if (tokens.Length == 2 && (tokens[1] == "help" || tokens[1] == "?" || tokens[1] == "h"))
+                {
+                    chatBox.textBoxEnter("/message " + sourceFarmer + " Usage: pause [help]");
+                    chatBox.textBoxEnter("/message " + sourceFarmer + " 说明: 切换服务器暂停/恢复状态，所有客户端同步。");
+                    return;
+                }
 
                 // 中文说明：切换游戏暂停状态
                 Game1.netWorldState.Value.IsPaused = !Game1.netWorldState.Value.IsPaused;

@@ -9,6 +9,7 @@ using StardewValley.Menus;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Linq;
 
 // TODO move config value checking to the ModEntry, or another dedicated class, to be performed
 // prior to any updates / Execute() calls. Also make sure to check validity of newly added fields, like
@@ -26,6 +27,9 @@ namespace MultiplayerAssistant.HostAutomatorStages
         private DemolishCommandListener demolishCommandListener = null;
         private PauseCommandListener pauseCommandListener = null;
         private ServerCommandListener serverCommandListener = null;
+        private Services.AutoKickService autoKickService = null;
+        private Services.HostKeepAliveService hostKeepAliveService = null;
+        private Services.ConfirmationTimeoutService confirmationTimeoutService = null;
 
         public StartFarmStage(IModHelper helper, IMonitor monitor, ModConfig config) : base(helper)
         {
@@ -58,13 +62,88 @@ namespace MultiplayerAssistant.HostAutomatorStages
                 return;
             }
             
-            MethodInfo info = typeof(LoadGameMenu).GetMethod("FindSaveGames", BindingFlags.Static | BindingFlags.NonPublic);
-            object result = info.Invoke(obj: null, parameters: Array.Empty<object>());
-            List<Farmer> farmers = result as List<Farmer>;
-            if (farmers == null)
-            {
-                return;
-            }
+			// 中文说明：1.6 可能更改了 FindSaveGames 的签名，使用健壮的反射调用以适配多种参数形式
+			List<Farmer> farmers = null;
+			try
+			{
+				var candidateMethods = typeof(LoadGameMenu)
+					.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
+					.Where(m => m.Name == "FindSaveGames")
+					.ToArray();
+				monitor.Debug($"检测到 LoadGameMenu.FindSaveGames 重载数量：{candidateMethods.Length}", nameof(StartFarmStage));
+
+				object result = null;
+				foreach (var m in candidateMethods)
+				{
+					var ps = m.GetParameters();
+					var sig = string.Join(", ", ps.Select(p => $"{p.ParameterType.Name}{(p.IsOptional ? "?" : string.Empty)}"));
+					monitor.Debug($"尝试调用重载：FindSaveGames({sig})", nameof(StartFarmStage));
+					try
+					{
+						object[] args;
+						if (ps.Length == 0)
+						{
+							args = Array.Empty<object>();
+						}
+						else
+						{
+							// 为可选参数提供默认值；值类型给定默认实例；引用类型给 null
+							args = ps.Select(p =>
+							{
+								if (p.HasDefaultValue) return p.DefaultValue;
+								if (p.IsOptional) return Type.Missing;
+								var t = p.ParameterType;
+								return t.IsValueType ? Activator.CreateInstance(t) : null;
+							}).ToArray();
+						}
+
+						// 只调用静态方法。若未来变为实例方法，这里直接跳过以避免构造菜单实例的副作用。
+						if (!m.IsStatic)
+						{
+							monitor.Debug("跳过非静态重载，以避免构造 LoadGameMenu 实例", nameof(StartFarmStage));
+							continue;
+						}
+
+						result = m.Invoke(null, args);
+						if (result != null)
+							break;
+					}
+					catch (TargetParameterCountException tpex)
+					{
+						monitor.Debug($"参数数量不匹配：{tpex.Message}", nameof(StartFarmStage));
+						continue;
+					}
+					catch (TargetInvocationException tiex)
+					{
+						monitor.Debug($"重载执行抛出：{tiex.InnerException?.Message ?? tiex.Message}", nameof(StartFarmStage));
+						continue;
+					}
+					catch (Exception innerEx)
+					{
+						monitor.Debug($"FindSaveGames 重载调用失败：{innerEx.Message}", nameof(StartFarmStage));
+						continue;
+					}
+				}
+
+				if (result is List<Farmer> list)
+				{
+					farmers = list;
+				}
+				else if (result is IEnumerable<Farmer> enumerable)
+				{
+					farmers = enumerable.ToList();
+				}
+			}
+			catch (Exception ex)
+			{
+				monitor.Error($"反射调用 LoadGameMenu.FindSaveGames 失败：{ex.Message}", nameof(StartFarmStage));
+				return;
+			}
+
+			if (farmers == null)
+			{
+				return;
+			}
 
             Farmer hostedFarmer = null;
             foreach (Farmer farmer in farmers)
@@ -330,12 +409,37 @@ namespace MultiplayerAssistant.HostAutomatorStages
 
             buildCommandListener = new BuildCommandListener(chatBox, monitor);
             buildCommandListener.Enable();
-            demolishCommandListener = new DemolishCommandListener(chatBox, monitor);
+            demolishCommandListener = new DemolishCommandListener(helper, chatBox, monitor);
             demolishCommandListener.Enable();
             pauseCommandListener = new PauseCommandListener(chatBox, monitor);
             pauseCommandListener.Enable();
             serverCommandListener = new ServerCommandListener(helper, config, chatBox, monitor);
             serverCommandListener.Enable();
+
+            // 注册控制台命令：time（仅在存档加载完成后确保环境就绪）
+            MultiplayerAssistant.ConsoleCommands.TimeConsoleCommandListener.Register(helper, monitor);
+
+            // 启用自动踢出未活动玩家服务（仅主机侧）
+            if (Context.IsMainPlayer && config.EnableAutoKickInactivePlayers)
+            {
+                autoKickService = new Services.AutoKickService(helper, monitor, chatBox, config);
+                autoKickService.Enable();
+            }
+
+            // 启用主机保活服务（仅主机侧）
+            if (Context.IsMainPlayer && config.EnableHostKeepAlive)
+            {
+                hostKeepAliveService = new Services.HostKeepAliveService(helper, monitor, config);
+                hostKeepAliveService.Enable();
+            }
+
+            // 启用集中确认超时服务（仅主机侧）
+            if (Context.IsMainPlayer)
+            {
+                confirmationTimeoutService = new Services.ConfirmationTimeoutService(helper, monitor);
+                confirmationTimeoutService.Enable();
+                Services.ServiceHub.ConfirmationTimeout = confirmationTimeoutService;
+            }
         }
 
         private void onReturnToTitle(object sender, ReturnedToTitleEventArgs e)
@@ -350,6 +454,25 @@ namespace MultiplayerAssistant.HostAutomatorStages
             pauseCommandListener = null;
             serverCommandListener?.Disable();
             serverCommandListener = null;
+
+            if (autoKickService != null)
+            {
+                autoKickService.Disable();
+                autoKickService = null;
+            }
+
+            if (hostKeepAliveService != null)
+            {
+                hostKeepAliveService.Disable();
+                hostKeepAliveService = null;
+            }
+
+            if (confirmationTimeoutService != null)
+            {
+                confirmationTimeoutService.Disable();
+                Services.ServiceHub.ConfirmationTimeout = null;
+                confirmationTimeoutService = null;
+            }
         }
     }
 }

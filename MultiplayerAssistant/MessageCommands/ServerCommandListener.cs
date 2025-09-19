@@ -50,10 +50,15 @@ namespace MultiplayerAssistant.MessageCommands
             if (tokens.Length == 0) { return; }
 
             tokens[0] = tokens[0].ToLower();
+            // 中文说明：仅主机可用
+            if (!Context.IsMainPlayer)
+            {
+                return;
+            }
 
             // 中文说明：作为主机，你可以在聊天框中运行命令，使用斜杠(/)作为前缀
             // 参见: https://stardewcommunitywiki.com/Multiplayer
-            var moveBuildPermissionCommand = new List<string>() { "mbp", "movebuildpermission", "movepermissiong" };
+            var moveBuildPermissionCommand = new List<string>() { "mbp", "movebuildpermission", "movepermission", "moveperm", "movepermissiong" };
            
             if( (ChatBox.privateMessage == e.ChatKind               ) &&
                 (moveBuildPermissionCommand.Any(tokens[0].Equals) ) )
@@ -61,16 +66,7 @@ namespace MultiplayerAssistant.MessageCommands
                 // 中文说明：收到建筑移动权限命令
                 monitor.Debug($"收到建筑移动权限命令：{e.Message}", nameof(ServerCommandListener));
                 
-                string newBuildPermission;
-
-                if (2 == tokens.Length)
-                {
-                    newBuildPermission = tokens[1].ToLower();
-                }
-                else
-                {
-                    newBuildPermission = "";
-                }
+                string newBuildPermission = tokens.Length >= 2 ? tokens[1].ToLower() : "";
 
                 var sourceFarmer = Game1.otherFarmers.Values
                     .Where( farmer => farmer.UniqueMultiplayerID == e.SourceFarmerId)
@@ -78,6 +74,23 @@ namespace MultiplayerAssistant.MessageCommands
                     .Name ?? Game1.player.Name;
 
                 var moveBuildPermissionParameter = new List<string>() { "off", "owned", "on" };
+                string ValidList() => string.Join(", ", moveBuildPermissionParameter.ToArray());
+
+                // 帮助/状态
+                if (newBuildPermission == "help" || newBuildPermission == "?" || newBuildPermission == "h")
+                {
+                    chatBox.textBoxEnter("/message " + sourceFarmer + " Usage: /mbp [off|owned|on|status|help]");
+                    chatBox.textBoxEnter("/message " + sourceFarmer + " Current: " + config.MoveBuildPermission);
+                    chatBox.textBoxEnter("/message " + sourceFarmer + " off   : 禁止农场帮手移动建筑");
+                    chatBox.textBoxEnter("/message " + sourceFarmer + " owned : 仅允许移动其本人购买的建筑");
+                    chatBox.textBoxEnter("/message " + sourceFarmer + " on    : 允许移动所有建筑");
+                    return;
+                }
+                if (newBuildPermission == "status")
+                {
+                    chatBox.textBoxEnter("/message " + sourceFarmer + " Current MoveBuildPermission = " + config.MoveBuildPermission);
+                    return;
+                }
 
                 if (moveBuildPermissionParameter.Any(newBuildPermission.Equals))
                 {
@@ -95,15 +108,23 @@ namespace MultiplayerAssistant.MessageCommands
                         chatBox.textBoxEnter(sourceFarmer + " Changed MoveBuildPermission to " + config.MoveBuildPermission);
                         chatBox.textBoxEnter("/mbp " + config.MoveBuildPermission);
                         helper.WriteConfig(config);
+                        chatBox.globalInfoMessage("[Server] MoveBuildPermission => " + config.MoveBuildPermission);
                     }
                 }
                 else
                 {
                     // 中文说明：无效的参数值
                     monitor.Warn($"无效的建筑移动权限参数：{newBuildPermission}，玩家：{sourceFarmer}", nameof(ServerCommandListener));
-                    chatBox.textBoxEnter("/message " + sourceFarmer + " Error: Only the following parameter are valid: " + String.Join(", ", moveBuildPermissionParameter.ToArray()));
+                    chatBox.textBoxEnter("/message " + sourceFarmer + " Error: Only the following parameter are valid: " + ValidList());
+                    chatBox.textBoxEnter("/message " + sourceFarmer + " Usage: /mbp [" + ValidList() + "|status|help]");
+                }
+                // 中文说明：无参数时展示当前值与帮助
+                if (tokens.Length == 1)
+                {
+                    chatBox.textBoxEnter("/message " + sourceFarmer + " Current MoveBuildPermission = " + config.MoveBuildPermission + ". Usage: /mbp [" + ValidList() + "|status|help]");
                 }
             }
+
         }
     }
 }

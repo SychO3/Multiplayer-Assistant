@@ -29,6 +29,19 @@ namespace MultiplayerAssistant.HostAutomatorStages
                 }
                 else if (Game1.currentLocation is FarmHouse)
                 {
+                    // 若已经有 ReadyCheckDialog 打开（无论是否为 sleep），不要重复创建，避免无限弹窗
+                    if (Game1.activeClickableMenu is ReadyCheckDialog)
+                    {
+                        state.Sleep();
+                        return;
+                    }
+                    // 如果已经宣布睡觉，则不要再次创建对话框，等待就绪同步
+                    if (Game1.player.team.announcedSleepingFarmers.Contains(Game1.player))
+                    {
+                        state.Sleep();
+                        return;
+                    }
+
                     Game1.player.isInBed.Value = true;
                     Game1.player.sleptInTemporaryBed.Value = true;
                     Game1.player.timeWentToBed.Value = Game1.timeOfDay;
@@ -38,7 +51,8 @@ namespace MultiplayerAssistant.HostAutomatorStages
                     {
                         Game1.player.isInBed.Value = true;
                         Game1.player.sleptInTemporaryBed.Value = true;
-                        info.Invoke(Game1.currentLocation, new object[]{});
+                        // 接受后触发实际的睡觉过渡，避免所有人就绪后仍停留在等待界面
+                        info.Invoke(Game1.currentLocation, new object[] { });
                     }, delegate (Farmer who)
                     {
                         if (Game1.activeClickableMenu != null && Game1.activeClickableMenu is ReadyCheckDialog rcd)
@@ -47,6 +61,9 @@ namespace MultiplayerAssistant.HostAutomatorStages
                         }
 
                         who.timeWentToBed.Value = 0;
+                        // 取消时同步撤销已宣布状态，避免保持 OthersInBed 为 true 导致循环弹窗
+                        if (who.team.announcedSleepingFarmers.Contains(who))
+                            who.team.announcedSleepingFarmers.Remove(who);
                     });
 
                     if (!Game1.player.team.announcedSleepingFarmers.Contains(Game1.player))

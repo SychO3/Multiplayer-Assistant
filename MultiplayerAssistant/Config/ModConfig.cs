@@ -60,5 +60,22 @@ namespace MultiplayerAssistant.Config
         // "owned" to allow farmhands to move buildings that they purchased.
         // "on" to allow moving all buildings.
         public string MoveBuildPermission { get; set; } = "off";
+
+        // ===== 新增：主机保活开关 =====
+        // 中文说明：是否启用主机体力/生命保活
+        public bool EnableHostKeepAlive { get; set; } = true;
+
+        // ===== 新增：自动踢出长时间未活动玩家 =====
+        // 中文说明：是否启用自动踢出未活动玩家（软踢：先警告，若无公开踢人API则提示主机处理）
+        public bool EnableAutoKickInactivePlayers { get; set; } = false;
+
+        // 中文说明：未活动阈值（分钟）
+        public int AutoKickInactivityMinutes { get; set; } = 30;
+
+        // 中文说明：主机是否豁免
+        public bool AutoKickExemptHost { get; set; } = true;
+
+        // 中文说明：白名单（玩家名或唯一ID字符串）
+        public List<string> AutoKickWhitelist { get; set; } = new List<string>();
     }
 }

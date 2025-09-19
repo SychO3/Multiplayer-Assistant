@@ -43,6 +43,8 @@ namespace MultiplayerAssistant
             this.config = helper.ReadConfig<ModConfig>();
             this.Monitor.Debug("配置读取完成", nameof(ModEntry));
 
+            // 控制台命令的注册已迁移至 TimeConsoleCommandListener，并在存档加载时注册
+
             // ensure that the game environment is in a stable state before the mod starts executing
             this.titleMenuWaitCondition = new WaitCondition(() => Game1.activeClickableMenu is StardewValley.Menus.TitleMenu, 5, this.Monitor);
             helper.Events.GameLoop.UpdateTicked += OnUpdateTicked;
@@ -66,7 +68,7 @@ namespace MultiplayerAssistant
             if (Context.IsWorldReady) 
             {
                 // 仅主机执行该逻辑，确保 ServerBot 角色定位（房主）
-                if (Context.IsMainPlayer && Game1.player is Farmer farmer)
+                if (this.config != null && this.config.EnableHostKeepAlive && Context.IsMainPlayer && Game1.player is Farmer farmer)
                 {
                     // 中文说明：每 Tick 维持生命与体力上限，不输出频繁日志以免刷屏
                     farmer.health = farmer.maxHealth; // int 赋值保持不变

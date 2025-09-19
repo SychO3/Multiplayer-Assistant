@@ -15,6 +15,18 @@ namespace MultiplayerAssistant.Crops
 {
     public class CropSaver
     {
+        // 中文说明：从 Data/Crops 读取季节信息的轻量模型
+        private class CropDataModel
+        {
+            public List<string> Seasons { get; set; }
+        }
+
+        private class CropDataModelFull
+        {
+            public List<string> Seasons { get; set; }
+            public string HarvestItemId { get; set; }
+            public int? SpriteIndex { get; set; }
+        }
         private IModHelper helper;
         private IMonitor monitor;
         private ModConfig config;
@@ -98,6 +110,51 @@ namespace MultiplayerAssistant.Crops
             this.helper = helper;
             this.monitor = monitor;
             this.config = config;
+        }
+
+        // 中文说明：尝试根据作物实例推断出对应的种子ID，并从 Data/Crops 读取 Seasons 字段
+        private List<string> TryGetCropSeasonsFromData(StardewValley.Crop crop)
+        {
+            try
+            {
+                // 改进匹配：按 HarvestItemId 与 SpriteIndex 双条件评分匹配
+                var dict = helper.GameContent.Load<Dictionary<string, CropDataModelFull>>("Data/Crops");
+                if (dict == null || dict.Count == 0)
+                    return null;
+
+                string harvestIdStr = crop.indexOfHarvest.Value.ToString();
+                int spriteRow = crop.rowInSpriteSheet.Value;
+
+                int bestScore = -1;
+                List<string> bestSeasons = null;
+
+                foreach (var kvp in dict)
+                {
+                    var model = kvp.Value;
+                    if (model == null)
+                        continue;
+
+                    int score = 0;
+                    if (!string.IsNullOrWhiteSpace(model.HarvestItemId) && string.Equals(model.HarvestItemId, harvestIdStr, StringComparison.OrdinalIgnoreCase))
+                        score += 2; // Harvest 匹配权重更高
+                    if (model.SpriteIndex.HasValue && model.SpriteIndex.Value == spriteRow)
+                        score += 1;
+
+                    if (score > bestScore && model.Seasons != null && model.Seasons.Count > 0)
+                    {
+                        bestScore = score;
+                        bestSeasons = model.Seasons;
+                    }
+                }
+
+                if (bestScore > 0 && bestSeasons != null)
+                    return bestSeasons.Select(s => s.ToLower()).ToList();
+            }
+            catch
+            {
+                // 忽略错误，回退四季
+            }
+            return null;
         }
 
         public void Enable()
@@ -192,7 +249,15 @@ namespace MultiplayerAssistant.Crops
 
                 try
                 {
-                    File.Move(saveFile, backupSaveFile);
+                    if (File.Exists(saveFile))
+                    {
+                        File.Move(saveFile, backupSaveFile);
+                    }
+                    else
+                    {
+                        // 旧数据文件不存在，跳过备份，避免 FileNotFoundException
+                        monitor.Debug($"未找到旧数据文件，跳过备份：{saveFile}", nameof(CropSaver));
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -325,8 +390,8 @@ namespace MultiplayerAssistant.Crops
                                     var cd = new CropData
                                     {
                                         MarkedForDeath = false,
-                                        // 中文说明：1.6 起季节判断数据驱动，临时记录为四季全可用，避免直接访问旧字段
-                                        OriginalSeasonsToGrowIn = new List<string>{"spring","summer","fall","winter"},
+                                        // 中文说明：尽力从 Data/Crops 中读取真实季节；读取失败则回退四季
+                                        OriginalSeasonsToGrowIn = TryGetCropSeasonsFromData(crop) ?? new List<string>{"spring","summer","fall","winter"},
                                         HasExistedInIncompatibleSeason = false,
                                         // 中文说明：占位
                                         OriginalRegrowAfterHarvest = 0,
