@@ -1,37 +1,92 @@
-using HarmonyLib;
+using MultiplayerAssistant.Config;
+using MultiplayerAssistant.HostAutomatorStages;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
+using StardewValley;
 
-namespace MultiplayerAssistant;
-
-public class ModEntry : Mod
-{   
-    private Harmony? _harmony;
-
-    public override void Entry(IModHelper helper)
+namespace MultiplayerAssistant
+{
+    /// <summary>The mod entry point.</summary>
+    public class ModEntry : Mod
     {
-        // 初始化 Harmony 并应用补丁（如果有）
-        this._harmony = new Harmony(this.ModManifest.UniqueID);
-        this._harmony.PatchAll();
+        // TODO ModConfig value checking. But perhaps this actually should be done in the SelectFarmStage; if the
+        // farm with the name given by the config exists, then none of the rest of the config values really matter,
+        // except for the bat / mushroom decision and the pet name (the parts accessed mid-game rather than just at
+        // farm creation).
 
-        MonitorExtensions.SetDefaultPrefix(this.ModManifest.Name);
+        // TODO Add more config options, like the ability to disable the crop saver (perhaps still keep track of crops
+        // in case it's enabled later, but don't alter them).
 
-        // 控制台命令：在 SMAPI 控制台输入 `mpa_ping`
-        helper.ConsoleCommands.Add("mpa_ping", "Ping test for MultiplayerAssistant", this.OnPingCommand);
+        // TODO Remove player limit (if the existing attempts haven't already succeeded in doing that).
 
-        // 事件示例
-        helper.Events.GameLoop.GameLaunched += this.OnGameLaunched;
+        // TODO Make the host invisible to everyone else
+
+        // TODO Consider what the automated host should do when another player proposes to them.
+
+        private WaitCondition titleMenuWaitCondition;
+        private ModConfig config;
+        private bool farmStageEnabled;
+
+        /*********
+        ** Public methods
+        *********/
+        /// <summary>The mod entry point, called after the mod is first loaded.</summary>
+        /// <param name="helper">Provides simplified APIs for writing mods.</param>
+        public override void Entry(IModHelper helper)
+        {
+            this.config = helper.ReadConfig<ModConfig>();
+
+            Monitor.Log("MultiplayerAssistant mod loaded.", LogLevel.Info);
+            Monitor.Log($"Config => FarmName='{config.FarmName}', FarmType='{config.FarmType}', Profit='{config.ProfitMargin}', Money='{config.MoneyStyle}', Cabins={config.StartingCabins}({config.CabinLayout}), CropSaver={(config.EnableCropSaver ? "on" : "off")}, Joja={(config.PurchaseJojaMembership ? "on" : "off")}, MoveBuildPermission='{config.MoveBuildPermission}'", LogLevel.Debug);
+
+            // ensure that the game environment is in a stable state before the mod starts executing
+            this.titleMenuWaitCondition = new WaitCondition(() => Game1.activeClickableMenu is StardewValley.Menus.TitleMenu, 5);
+            helper.Events.GameLoop.UpdateTicked += OnUpdateTicked;
+        }
+
+        /// <summary>
+        /// Event handler to wait until a specific condition is met before executing.
+        /// </summary>
+        private void OnUpdateTicked(object sender, UpdateTickedEventArgs e)
+        {
+            if (!this.farmStageEnabled && this.titleMenuWaitCondition.IsMet())
+            {
+                this.farmStageEnabled = true; // Set the flag to true once the condition is met.
+                Monitor.Log("Title menu reached; enabling StartFarmStage.", LogLevel.Info);
+                new StartFarmStage(this.Helper, Monitor, config).Enable();
+            }
+            // makes the host stamina and health infinite
+            if (Context.IsWorldReady)
+            {
+                Game1.player.health = Game1.player.maxHealth;
+                Game1.player.stamina = Game1.player.maxStamina.Value;
+            }
+        }
+
+        /// <summary>
+        /// Represents wait condition.
+        /// </summary>
+        private class WaitCondition
+        {
+            private readonly System.Func<bool> condition;
+            private int waitCounter;
+
+            public WaitCondition(System.Func<bool> condition, int initialWait)
+            {
+                this.condition = condition;
+                this.waitCounter = initialWait;
+            }
+
+            public bool IsMet()
+            {
+                if (this.waitCounter <= 0 && this.condition())
+                {
+                    return true;
+                }
+
+                this.waitCounter--;
+                return false;
+            }
+        }
     }
-
-    private void OnGameLaunched(object? sender, GameLaunchedEventArgs e)
-    {
-        this.Monitor.Info("Multiplayer Assistant loaded. Ready to help!");
-    }
-
-    private void OnPingCommand(string cmd, string[] args)
-    {
-        this.Monitor.Info("pong", "Console"); // "Console" 为上下文标签，可根据需要替换
-    }
-
-    
 }

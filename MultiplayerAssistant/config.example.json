@@ -1,0 +1,61 @@
+{
+  "FarmName": "Stardew",
+  "StartingCabins": 3,
+  "CabinLayout": "separate",
+  "ProfitMargin": "normal",
+  "MoneyStyle": "shared",
+  "FarmType": "standard",
+  "CommunityCenterBundles": "normal",
+  "GuaranteeYear1Completable": false,
+  "MineRewards": "normal",
+  "SpawnMonstersOnFarmAtNight": false,
+  "RandomSeed": null,
+
+  "AcceptPet": true,
+  "PetSpecies": "dog",
+  "PetBreed": 0,
+  "PetName": "Stella",
+  "MushroomsOrBats": "Mushrooms",
+  "PurchaseJojaMembership": false,
+
+  "EnableCropSaver": true,
+
+  "MoveBuildPermission": "off",
+
+  "AutoSleepTime": 2200,
+  "ForceReturnToBed": true,
+  "FestivalAutoStartDelaySeconds": 60,
+  "FestivalEndWarningSeconds": 120,
+  "FestivalForceStartSeconds": 60,
+
+  "PlayerLimit": 16,
+  "ExtraCabins": 5,
+  "CabinStyle": "stone",
+  "CabinPositions": [{ "X": 70, "Y": 15 }],
+  "StartGold": 5000,
+  "StartSkills": { "Farming": 3, "Fishing": 2, "Foraging": 2, "Mining": 3, "Combat": 1 },
+  "StartMail": ["JojaMember"],
+  "StartWeatherDay1": "sunny",
+  "LockCabinMove": false,
+
+  "ChestLockEnabled": true,
+  "ChestLockScope": "placed-by-owner",
+  "ChestLockHostBypass": true,
+  "ChestLockWhitelist": [],
+  "ChestLockAllowPublicToggle": true,
+  "ChestLockNearbyRadius": 5,
+
+  "WriteInviteCodeFile": true,
+  "InviteCodeFileName": "InviteCode.txt",
+  "FreezeHostHeartLoss": true,
+
+  "JojaAutoUpgradesEnabled": false,
+  "JojaUpgradeBudgetMultiplier": 2.0,
+  "JojaUpgradeOrder": ["minecarts", "quarry", "boulder", "greenhouse", "bus"],
+  "JojaUpgradeCosts": { "minecarts": 15000, "boulder": 20000, "quarry": 25000, "greenhouse": 35000, "bus": 40000 },
+  "JojaPurchaseConfirmDelaySeconds": 10,
+
+  "AntiCheatSanitizeNames": true,
+  "AntiCheatBlockedNameRegex": ["\\[[0-9]+\\]", "\\((O|P)\\)[0-9]+"],
+  "AntiCheatAnnounceSanitize": false
+}
