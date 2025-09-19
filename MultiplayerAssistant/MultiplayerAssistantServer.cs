@@ -99,6 +99,8 @@ namespace MultiplayerAssistant
         SDate festivalOfIce = new SDate(8, "winter");
         SDate feastOfWinterStar = new SDate(25, "winter");
         SDate grampasGhost = new SDate(1, "spring", 3);
+        // 自动睡觉跟随协调器
+        private AutoSleepCoordinator autoSleepCoordinator;
         ///////////////////////////////////////////////////////
 
 
@@ -164,6 +166,9 @@ namespace MultiplayerAssistant
             // 注册多人游戏事件用于检测玩家mod
             helper.Events.Multiplayer.PeerConnected += this.OnPeerConnected;
             helper.Events.Multiplayer.PeerDisconnected += this.OnPeerDisconnected;
+            // 注册自动睡觉协调器（中文注释：只做事件监听与ready跟随，不改变原有睡觉逻辑）
+            autoSleepCoordinator = new AutoSleepCoordinator(this.Helper, this.Monitor);
+            autoSleepCoordinator.Register();
             sleepKeyword += this.Config.sleepKeyword;
             festivalKeyword += this.Config.festivalKeyword;
             eventKeyword += this.Config.eventKeyword;
