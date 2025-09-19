@@ -35,6 +35,7 @@ namespace MultiplayerAssistant.HostAutomatorStages
         {
             this.monitor = monitor;
             this.config = config;
+            ReadyCheckHelper.Initialize(monitor);
             helper.Events.GameLoop.SaveLoaded += onSaveLoaded;
             if (config.EnableCropSaver) {
                 cropSaver = new CropSaver(helper, monitor, config);
