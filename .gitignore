@@ -58,3 +58,4 @@ nunit-*.xml
 apis_en
 .config/
 .windsurf/
+.cursor/
