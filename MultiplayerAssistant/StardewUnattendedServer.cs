@@ -1830,6 +1830,32 @@ namespace MultiplayerAssistant
             });
         }
 
+        /// <summary>获取玩家显示名称</summary>
+        /// <param name="playerID">玩家ID</param>
+        /// <returns>玩家名称，如果找不到则返回ID</returns>
+        private string GetPlayerDisplayName(long playerID)
+        {
+            try
+            {
+                // 首先尝试从在线农民列表中查找
+                foreach (Farmer farmer in Game1.getOnlineFarmers())
+                {
+                    if (farmer.UniqueMultiplayerID == playerID)
+                    {
+                        return farmer.displayName ?? farmer.Name ?? $"Player_{playerID}";
+                    }
+                }
+
+                // 如果找不到，返回格式化的ID
+                return $"Player_{playerID}";
+            }
+            catch (Exception ex)
+            {
+                this.Monitor.ServerBotException(ex, "获取玩家名称时发生错误", "PlayerDetection");
+                return $"Player_{playerID}";
+            }
+        }
+
         /// <summary>玩家连接时触发，检测mod使用情况</summary>
         /// <param name="sender">事件发送者</param>
         /// <param name="e">事件数据</param>
@@ -1843,19 +1869,22 @@ namespace MultiplayerAssistant
                 var peer = e.Peer;
                 connectedPeers[peer.PlayerID] = peer;
 
+                // 获取玩家名称
+                var playerName = GetPlayerDisplayName(peer.PlayerID);
+
                 // 记录玩家连接信息
-                this.Monitor.MultiplayerDebug($"玩家连接: ID={peer.PlayerID}, 是否为房主={peer.IsHost}, 是否使用SMAPI={peer.HasSmapi}", "PlayerDetection");
+                this.Monitor.MultiplayerDebug($"玩家连接: {playerName} (ID={peer.PlayerID}), 是否为房主={peer.IsHost}, 是否使用SMAPI={peer.HasSmapi}", "PlayerDetection");
 
                 if (peer.HasSmapi)
                 {
                     // 玩家使用了SMAPI和mod
                     var modCount = peer.Mods?.Count() ?? 0;
-                    this.Monitor.MultiplayerDebug($"检测到使用mod的玩家: 玩家ID={peer.PlayerID}, mod数量={modCount}, 游戏版本={peer.GameVersion}, SMAPI版本={peer.ApiVersion}, 平台={peer.Platform}", "PlayerDetection");
+                    this.Monitor.MultiplayerDebug($"检测到使用mod的玩家: {playerName} (ID={peer.PlayerID}), mod数量={modCount}, 游戏版本={peer.GameVersion}, SMAPI版本={peer.ApiVersion}, 平台={peer.Platform}", "PlayerDetection");
 
                     // 始终记录mod列表到日志
                     if (modCount > 0 && peer.Mods != null)
                     {
-                        this.Monitor.MultiplayerDebug($"玩家 {peer.PlayerID} 的mod列表:", "ModList");
+                        this.Monitor.MultiplayerDebug($"玩家 {playerName} 的mod列表:", "ModList");
                         foreach (var mod in peer.Mods)
                         {
                             this.Monitor.MultiplayerDebug($"  - {mod.Name} v{mod.Version} (ID: {mod.ID})", "ModList");
@@ -1865,27 +1894,27 @@ namespace MultiplayerAssistant
                     // 如果启用了踢出mod玩家选项
                     if (this.Config.kickModdedPlayers)
                     {
-                        this.Monitor.ServerBotInfo($"踢出使用mod的玩家: {peer.PlayerID}", "PlayerDetection");
+                        this.Monitor.ServerBotInfo($"踢出使用mod的玩家: {playerName} (ID={peer.PlayerID})", "PlayerDetection");
                         Game1.server?.kick(peer.PlayerID);
-                        this.SendChatMessage("已踢出使用mod的玩家");
+                        this.SendChatMessage($"已踢出使用mod的玩家: {playerName}");
                         return;
                     }
 
                     // 发送聊天通知（如果启用）
                     if (this.Config.notifyModdedPlayers)
                     {
-                        this.SendChatMessage($"检测到使用mod的玩家加入，共安装了 {modCount} 个mod");
+                        this.SendChatMessage($"玩家 {playerName} 加入游戏，共安装了 {modCount} 个mod");
                     }
                 }
                 else
                 {
                     // 玩家没有使用SMAPI/mod
-                    this.Monitor.MultiplayerDebug($"检测到未使用mod的玩家: 玩家ID={peer.PlayerID}", "PlayerDetection");
+                    this.Monitor.MultiplayerDebug($"检测到未使用mod的玩家: {playerName} (ID={peer.PlayerID})", "PlayerDetection");
 
                     // 发送聊天通知（如果启用）
                     if (this.Config.notifyModdedPlayers)
                     {
-                        this.SendChatMessage("检测到未使用mod的玩家加入");
+                        this.SendChatMessage($"玩家 {playerName} 加入游戏！");
                     }
                 }
             }
@@ -1907,6 +1936,9 @@ namespace MultiplayerAssistant
             {
                 var peer = e.Peer;
                 
+                // 获取玩家名称
+                var playerName = GetPlayerDisplayName(peer.PlayerID);
+                
                 // 从连接列表中移除
                 if (connectedPeers.ContainsKey(peer.PlayerID))
                 {
@@ -1914,13 +1946,13 @@ namespace MultiplayerAssistant
                 }
 
                 // 记录断开连接信息
-                this.Monitor.MultiplayerDebug($"玩家断开连接: ID={peer.PlayerID}, 是否使用SMAPI={peer.HasSmapi}", "PlayerDetection");
+                this.Monitor.MultiplayerDebug($"玩家断开连接: {playerName} (ID={peer.PlayerID}), 是否使用SMAPI={peer.HasSmapi}", "PlayerDetection");
 
                 // 发送聊天通知（如果启用）
                 if (this.Config.notifyModdedPlayers)
                 {
-                    var playerType = peer.HasSmapi ? "使用mod的玩家" : "未使用mod的玩家";
-                    this.SendChatMessage($"{playerType}已离开游戏");
+                    var modStatus = peer.HasSmapi ? "MOD玩家" : "原版玩家";
+                    this.SendChatMessage($"{modStatus} {playerName} 已离开游戏");
                 }
             }
             catch (Exception ex)
